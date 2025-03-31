@@ -10,6 +10,8 @@ import type { Session } from "../models/session";
 import type { Host } from "../models/host";
 import { ConnectionErrorToast } from "../components/connection-error-toast";
 import { ConnectionError } from "../components/connection-error";
+import { useSession } from "../hooks/use-session";
+import { useHost } from "../hooks/use-host";
 
 interface ConnectionContextType {
 	// Connection state
@@ -41,6 +43,9 @@ const ConnectionContext = createContext<ConnectionContextType | undefined>(
 export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 	children,
 }) => {
+	const { sessions, createSession, endSession, getAllSessions } = useSession();
+	const { getHost } = useHost();
+
 	const [activeSessions, setActiveSessions] = useState<Session[]>([]);
 	const [activeTab, setActiveTab] = useState<string | null>(null);
 	const [connectingHost, setConnectingHost] = useState<{
@@ -56,141 +61,19 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 	const [isHostSelectorOpen, setIsHostSelectorOpen] = useState(false);
 
 	// Load initial sessions
-	// useEffect(() => {
-	//   ipcRenderer.invoke('sessions:getAll').then((sessions: Session[]) => {
-	//     setActiveSessions(sessions);
-	//     if (sessions.length > 0) {
-	//       setActiveTab(sessions[0].id);
-	//     }
-	//   });
-	// }, []);
-
-	// Set up IPC event listeners
 	useEffect(() => {
-		// Session started event handler
-		const sessionStartedHandler = (_: any, session: Session) => {
-			console.log(
-				`ConnectionContext: Session started event received for session ${session.id}`
-			);
-			console.log(`ConnectionContext: Session details:`, session);
-
-			// Update active sessions
-			setActiveSessions((prev) => {
-				console.log(
-					`ConnectionContext: Adding session ${session.id} to active sessions`
-				);
-				return [...prev, session];
-			});
-
-			// Set this as the active tab
-			console.log(`ConnectionContext: Setting active tab to ${session.id}`);
-			setActiveTab(session.id);
-			setIsConnecting(false);
-
-			// Update connecting host status to connected
-			if (connectingHost) {
-				console.log(
-					`ConnectionContext: Updating connecting host status to connected`
-				);
-				setConnectingHost({
-					...connectingHost,
-					status: "connected",
-				});
-
-				// Clear connecting host after a short delay to allow for UI transition
-				setTimeout(() => {
-					setConnectingHost(null);
-				}, 1000);
+		getAllSessions().then((sessions) => {
+			setActiveSessions(sessions);
+			if (sessions.length > 0) {
+				setActiveTab(sessions[0]?.id || null);
 			}
-		};
+		});
+	}, [getAllSessions]);
 
-		// Session ended event handler
-		const sessionEndedHandler = (_: any, sessionId: string) => {
-			console.log(
-				`ConnectionContext: Received session:ended event for session ${sessionId}`
-			);
-
-			// First update the active sessions state
-			setActiveSessions((prev) => {
-				const updatedSessions = prev.filter((s) => s.id !== sessionId);
-				console.log(
-					`ConnectionContext: Updated active sessions:`,
-					updatedSessions.map((s) => s.id)
-				);
-
-				// Then handle the active tab change if needed
-				if (activeTab === sessionId) {
-					console.log(
-						`ConnectionContext: Active tab ${activeTab} is the one that ended, switching tabs`
-					);
-
-					if (updatedSessions.length > 0) {
-						// Use setTimeout to ensure this runs after the state update
-						setTimeout(() => {
-							// setActiveTab(updatedSessions[0].id);
-						}, 0);
-					} else {
-						console.log(
-							`ConnectionContext: No remaining sessions, clearing active tab`
-						);
-						// Use setTimeout to ensure this runs after the state update
-						setTimeout(() => {
-							setActiveTab(null);
-						}, 0);
-					}
-				}
-
-				return updatedSessions;
-			});
-		};
-
-		// Connection error handler
-		const connectionErrorHandler = (
-			_: any,
-			data: { hostId: string; error: string }
-		) => {
-			console.log(
-				`ConnectionContext: Connection error for host ${data.hostId}: ${data.error}`
-			);
-			setIsConnecting(false);
-
-			if (connectingHost && connectingHost.id === data.hostId) {
-				// Add error to connection logs
-				const updatedLogs = [...connectionLogs];
-				updatedLogs.push(`Connection error: ${data.error}`);
-				setConnectionLogs(updatedLogs);
-
-				// Update connecting host with error status and logs
-				setConnectingHost((prev) =>
-					prev
-						? {
-								...prev,
-								status: "error",
-								error: data.error,
-								logs: updatedLogs,
-						  }
-						: null
-				);
-
-				// Don't automatically clear the connecting host - let the user dismiss it
-			}
-
-			// Get the host details if available
-			const hostLabel = connectingHost?.label || "Unknown host";
-		};
-
-		// Register event listeners
-		// ipcRenderer.on('session:started', sessionStartedHandler);
-		// ipcRenderer.on('session:ended', sessionEndedHandler);
-		// ipcRenderer.on('ssh:connectionError', connectionErrorHandler);
-
-		// Cleanup function
-		return () => {
-			// ipcRenderer.removeListener('session:started', sessionStartedHandler);
-			// ipcRenderer.removeListener('session:ended', sessionEndedHandler);
-			// ipcRenderer.removeListener('ssh:connectionError', connectionErrorHandler);
-		};
-	}, [activeTab, connectingHost, setIsConnecting, connectionLogs]);
+	// Update active sessions when sessions state changes
+	useEffect(() => {
+		setActiveSessions(sessions);
+	}, [sessions]);
 
 	// Connect to a host
 	const connect = useCallback(
@@ -204,17 +87,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 				const logs: string[] = [];
 
 				// Get host details for the loading screen
-				// const host = (await ipcRenderer.invoke(
-				//   'hosts:getById',
-				//   hostId
-				// )) as Host;
-				const host = {
-					id: "1",
-					label: "Test Host",
-					hostname: "test.com",
-					port: 22,
-					username: "test",
-				} as Host;
+				const host = await getHost(hostId);
 
 				if (!host) {
 					console.error(`Host not found with ID: ${hostId}`);
@@ -260,12 +133,12 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 					`ConnectionContext: Initiating SSH connection to ${host.label}`
 				);
 
-				// Initiate connection and await the result
-				// const result = await ipcRenderer.invoke('ssh:connect', hostId);
-				// console.log(
-				//   `ConnectionContext: SSH connection initiated, result:`,
-				//   result
-				// );
+				// Create a new session
+				const session = await createSession(hostId);
+
+				if (!session) {
+					throw new Error("Failed to create session");
+				}
 
 				// Add connection established log
 				logs.push(`Connection to "${host.hostname}" established`);
@@ -275,10 +148,8 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 					prev ? { ...prev, logs: [...logs] } : null
 				);
 
-				// If the result includes a session, set it as the active tab immediately
-				// if (result && result.sessionId) {
-				//   setActiveTab(result.sessionId);
-				// }
+				// Set as active tab
+				setActiveTab(session.id);
 			} catch (error) {
 				console.error("ConnectionContext: Connection failed:", error);
 
@@ -315,12 +186,10 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 						: null
 				);
 
-				// Show a toast notification with detailed error information
-
 				setIsConnecting(false);
 			}
 		},
-		[setConnectingHost, setIsConnecting, connectionLogs]
+		[getHost, createSession, connectionLogs, connectingHost]
 	);
 
 	// Disconnect from a session
@@ -328,54 +197,31 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 		async (sessionId: string) => {
 			console.log(`ConnectionContext: Closing session ${sessionId}`);
 
-			// First, update the UI immediately to provide responsive feedback
-			setActiveSessions((prev) => {
-				const updatedSessions = prev.filter((s) => s.id !== sessionId);
-				console.log(
-					`ConnectionContext: Updated active sessions UI:`,
-					updatedSessions.map((s) => s.id)
-				);
-				return updatedSessions;
-			});
-
-			// Handle active tab change if needed
-			if (activeTab === sessionId) {
-				const remainingSessions = activeSessions.filter(
-					(s) => s.id !== sessionId
-				);
-				if (remainingSessions.length > 0) {
-					// console.log(
-					// 	`ConnectionContext: Switching to session ${remainingSessions[0].id}`
-					// );
-					// setActiveTab(remainingSessions[0].id);
-				} else {
-					console.log(
-						`ConnectionContext: No remaining sessions, clearing active tab`
-					);
-					setActiveTab(null);
-				}
-			}
-
-			// Then, tell the main process to disconnect and remove the session
 			try {
-				// await ipcRenderer.invoke("ssh:disconnect", sessionId);
+				await endSession(sessionId);
 				console.log(
-					`ConnectionContext: Successfully sent disconnect request for session ${sessionId}`
+					`ConnectionContext: Successfully closed session ${sessionId}`
 				);
 
-				// After disconnection, ensure the session is removed from storage
-				// await ipcRenderer.invoke("sessions:remove", sessionId);
-				console.log(
-					`ConnectionContext: Successfully removed session ${sessionId} from storage`
-				);
+				// Handle active tab change if needed
+				if (activeTab === sessionId) {
+					const remainingSessions = activeSessions.filter(
+						(s) => s.id !== sessionId
+					);
+					if (remainingSessions.length > 0 && remainingSessions[0]?.id) {
+						setActiveTab(remainingSessions[0].id);
+					} else {
+						setActiveTab(null);
+					}
+				}
 			} catch (error) {
 				console.error(
-					`ConnectionContext: Error in session closing flow for ${sessionId}:`,
+					`ConnectionContext: Error closing session ${sessionId}:`,
 					error
 				);
 			}
 		},
-		[activeTab, activeSessions]
+		[activeTab, activeSessions, endSession]
 	);
 
 	// Clear connection error
@@ -433,10 +279,8 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 			connectionLogs,
 			connect,
 			disconnect,
-			setActiveTab,
 			clearConnectionError,
 			isHostSelectorOpen,
-			setIsHostSelectorOpen,
 		]
 	);
 

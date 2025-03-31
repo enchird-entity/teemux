@@ -15,9 +15,14 @@ use tauri::{
 use tauri_plugin_store;
 use tauri_plugin_window_state;
 
+mod commands;
+mod error;
+mod models;
+mod services;
 mod tray_icon;
 mod utils;
 
+use commands::host::{delete_host, get_all_hosts, get_host, save_host, update_host};
 use tray_icon::{create_tray_icon, tray_update_lang, TrayState};
 use utils::long_running_thread;
 
