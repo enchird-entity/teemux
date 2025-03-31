@@ -1,10 +1,11 @@
 import { Plus } from "lucide-react";
 import { FileText, FolderOpenDot, Unplug, X } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useConnection } from "@/contexts/connection.context";
+import { HostSelector } from "@/components/hosts/host-selector";
 
 export const RootLayout = () => {
 	const navigate = useNavigate();
@@ -15,6 +16,7 @@ export const RootLayout = () => {
 		disconnect,
 		setActiveTab: setActiveTabFromContext,
 		setIsHostSelectorOpen,
+		isHostSelectorOpen,
 	} = useConnection();
 
 	const handleTabChange = useCallback(
@@ -49,13 +51,13 @@ export const RootLayout = () => {
 	return (
 		<div className="root-layout">
 			{/* Top bar with terminal tabs and plus button - ALWAYS visible */}
-			<div className="bg-[#1a1a24] border-b border-[#2d2d3a] px-4 flex items-center justify-between h-12">
+			<div className="bg-[#1a1a24] border-b border-[#2d2d3a] pr-2 flex items-center justify-between h-12">
 				{/* Vaults and SFTP buttons - moved to the left */}
-				<div className="flex items-center">
+				<div className="flex items-center gap-4">
 					<Button
 						onClick={() => navigate("/vaults")}
 						variant="ghost"
-						className={`flex items-center gap-2 px-4 h-10 rounded-none border-b-2 ${
+						className={`flex items-center gap-2 px-5 h-12 rounded-none border-b-2 ${
 							location.pathname === "/" ||
 							location.pathname.startsWith("/vaults")
 								? "border-[#f97316] text-white"
@@ -69,7 +71,7 @@ export const RootLayout = () => {
 					<Button
 						onClick={() => navigate("/sftp")}
 						variant="ghost"
-						className={`flex items-center gap-2 px-4 h-10 rounded-none border-b-2 ${
+						className={`flex items-center gap-2 px-5 h-12 rounded-none border-b-2 ${
 							location.pathname.startsWith("/sftp")
 								? "border-[#f97316] text-white"
 								: "border-transparent text-gray-400"
@@ -83,14 +85,14 @@ export const RootLayout = () => {
 				<Tabs
 					value={activeTab || undefined}
 					onValueChange={handleTabChange}
-					className="flex-1 flex justify-start border-l pl-2 ml-2 border-gray-700"
+					className="flex-1 flex justify-start border-l-2 pl-2 ml-2 border-[#2d2d3a]"
 				>
-					<TabsList className="h-10 bg-transparent">
+					<TabsList className="h-12 bg-transparent">
 						{activeSessions.map((session) => (
 							<TabsTrigger
 								key={session.id}
 								value={session.id}
-								className={`flex items-center gap-2 px-4 h-10 rounded-none border-b-2 ${
+								className={`flex items-center gap-2 px-4 h-12 rounded-none border-b-2 ${
 									activeTab === session.id
 										? "border-[#f97316] text-white"
 										: "border-transparent text-gray-400 hover:text-white"
@@ -117,15 +119,16 @@ export const RootLayout = () => {
 					<Button
 						variant="ghost"
 						size="icon"
-						className="h-10 w-10 rounded-full"
+						className="h-10 w-10 rounded-lg"
 						onClick={handleOpenHostSelector}
 					>
 						<Plus size={18} />
-						<span className="sr-only">New Terminal</span>
 					</Button>
 				</div>
 			</div>
 			<Outlet />
+
+			{isHostSelectorOpen && <HostSelector />}
 		</div>
 	);
 };

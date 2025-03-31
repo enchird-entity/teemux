@@ -6,6 +6,7 @@ import {
 	NavLink,
 	Outlet,
 	useNavigate,
+	RouteProps,
 } from "react-router-dom";
 import { ErrorBoundary } from "react-error-boundary";
 import "./App.css";
@@ -17,10 +18,11 @@ import { PortForwardingPage } from "./pages/port-forwarding.page";
 import { KeychainPage } from "./pages/keychain.page";
 import { KnownHostsPage } from "./pages/known-hosts.page";
 import { SnippetsPage } from "./pages/snippets.page";
-import { SettingsLayout } from "./layouts/settins.layout";
+import { SettingsLayout } from "./layouts/settings.layout";
 import { AccountSettingsPage } from "./pages/settings.page";
 import { ProfileSettingsPage } from "./pages/settings.page";
 import { SftpPage } from "./pages/sftp.page";
+import { terminalRoutes } from "./routes/terminal.routes";
 
 // Auth Layout (now nested inside RootLayout)
 function AuthLayout() {
@@ -127,7 +129,20 @@ export default function App() {
 
 								{/* Standalone route (no layout) */}
 								<Route path="/sftp" element={<SftpPage />} />
-								<Route path="/terminal" element={<StandalonePage />} />
+								{/* Terminal routes */}
+								<Route
+									path={terminalRoutes.path}
+									element={terminalRoutes.element}
+								>
+									{terminalRoutes.children?.map((route) => (
+										<Route
+											key={route.path || "index"}
+											index={route.index}
+											path={route.path}
+											element={route.element}
+										/>
+									))}
+								</Route>
 							</Route>
 
 							{/* Root redirect */}

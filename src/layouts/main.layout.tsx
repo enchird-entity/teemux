@@ -1,11 +1,7 @@
 import { Sidebar } from "@/components/layout/sidebar";
-import { Outlet, useNavigate } from "react-router-dom";
-
-import { NavLink } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 
 export const MainLayout = () => {
-	const navigate = useNavigate();
-
 	return (
 		<div className="main-layout">
 			<div className="flex-1 flex overflow-hidden">

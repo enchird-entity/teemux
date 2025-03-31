@@ -139,7 +139,7 @@ export function Sidebar({}: SidebarProps) {
 							"hover:bg-[#2d2d3a]",
 							location.pathname === item.path ||
 								(item.id === "hosts" &&
-									(location.pathname.startsWith("/vaults") ||
+									(location.pathname.startsWith("/vaults/hosts") ||
 										location.pathname === "/"))
 								? "bg-[#2d2d3a] text-white border-l-2 border-[#7C3AED]"
 								: "text-gray-400"

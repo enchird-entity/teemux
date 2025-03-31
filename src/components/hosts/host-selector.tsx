@@ -122,7 +122,7 @@ export function HostSelector({}: HostSelectorProps) {
 	});
 
 	return (
-		<div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-16">
+		<div className="fixed inset-0 bg-black/70 bg-opacity-50 z-50 flex items-start justify-center pt-16 h-dvh">
 			<div className="bg-[#1e1e2e] rounded-md shadow-lg w-full max-w-3xl max-h-[80vh] flex flex-col">
 				{/* Header with search and close button */}
 				<div className="flex items-center justify-between p-4 border-b border-[#2d2d3a]">
