@@ -1,13 +1,4 @@
-Below are the `README.md` and `CONTRIBUTORS.md` files for your Teemux project. These files are designed to provide clear documentation for an open-source project, including setup instructions, feature descriptions, contribution guidelines, and a template for tracking contributors. The `README.md` is detailed to attract potential users and contributors, while the `CONTRIBUTORS.md` sets up a structure for acknowledging contributions.
-
----
-
-### README.md
-
-````markdown
 # Teemux
-
-![Teemux Logo](https://via.placeholder.com/150.png?text=Teemux) <!-- Replace with actual logo if available -->
 
 Teemux is a lightweight, futuristic SSH client built with [Tauri](https://tauri.app/), [React](https://reactjs.org/), and [Tailwind CSS](https://tailwindcss.com/). Designed to surpass Termius, Teemux offers a modern, sci-fi-inspired interface with robust features like automatic SSH reconnection, SSH key management, terminal customization, snippets, port forwarding, SFTP, and more. It also introduces innovative enhancements such as a connection health bar, SSH Galaxy View, and voice command support, making it a powerful tool for system administrators, DevOps engineers, and developers.
 
@@ -47,11 +38,11 @@ Teemux is a lightweight, futuristic SSH client built with [Tauri](https://tauri.
 ### Setup
 
 1. **Clone the Repository:**
+
    ```bash
    git clone https://github.com/your-username/teemux.git
    cd teemux
    ```
-````
 
 2. **Install Dependencies:**
 
