@@ -1,7 +1,7 @@
 {
 	"bundle": {
 		"active": true,
-		"targets": "all",
+		"targets": ["deb", "appimage", "nsis", "app", "dmg"],
 		"windows": {
 			"certificateThumbprint": null,
 			"digestAlgorithm": "sha256",
@@ -57,7 +57,7 @@
 		},
 		"windows": [
 			{
-				"title": "tauri.conf.json > tauri > windows > title",
+				"title": "Teemux",
 				"label": "main",
 				"minWidth": 1000,
 				"minHeight": 600,
