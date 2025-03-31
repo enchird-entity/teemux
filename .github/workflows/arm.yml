@@ -19,12 +19,12 @@ jobs:
             base_image: https://dietpi.com/downloads/images/DietPi_RPi-ARMv8-Bookworm.img.xz
             deb: arm64
             rpm: aarch64
-            appimage: aarch64
+            teemux: aarch64
           - arch: armv7l
             cpu: cortex-a53
             deb: armhfp
             rpm: arm
-            appimage: armhf
+            teemux: armhf
             base_image: https://dietpi.com/downloads/images/DietPi_RPi-ARMv7-Bookworm.img.xz
 
     steps:
@@ -75,16 +75,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Debian Bundle
-          path: ${{ github.workspace }}/src-tauri/target/release/bundle/deb/appname_${{ env.APP_VERSION }}_${{ matrix.deb }}.deb
+          path: ${{ github.workspace }}/src-tauri/target/release/bundle/deb/teemux_${{ env.APP_VERSION }}_${{ matrix.deb }}.deb
 
       - name: Upload rpm bundle
         uses: actions/upload-artifact@v4
         with:
           name: RPM Bundle
-          path: ${{ github.workspace }}/src-tauri/target/release/bundle/rpm/appname-${{ env.APP_VERSION }}-1.${{ matrix.rpm }}.rpm
+          path: ${{ github.workspace }}/src-tauri/target/release/bundle/rpm/teemux-${{ env.APP_VERSION }}-1.${{ matrix.rpm }}.rpm
 
-      - name: Upload appimage bundle
+      - name: Upload teemux bundle
         uses: actions/upload-artifact@v4
         with:
-          name: AppImage Bundle
-          path: ${{ github.workspace }}/src-tauri/target/release/bundle/appimage/appname_${{ env.APP_VERSION }}_${{ matrix.appimage }}.AppImage
+          name: teemux Bundle
+          path: ${{ github.workspace }}/src-tauri/target/release/bundle/teemux/teemux_${{ env.APP_VERSION }}_${{ matrix.teemux }}.teemux

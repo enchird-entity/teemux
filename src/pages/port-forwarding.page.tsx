@@ -20,6 +20,13 @@ import {
 	DialogTitle,
 	DialogFooter,
 } from "@/components/ui/dialog";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 
 interface PortForwardingRule {
 	id: string;
@@ -64,8 +71,8 @@ export function PortForwardingPage() {
 	}, []);
 
 	const loadHosts = () => {
-		setIsLoading(true);
 		//todo: load hosts
+		// setIsLoading(true);
 		// ipcRenderer
 		//   .invoke('hosts:getAll')
 		//   .then((result: Host[]) => {
@@ -80,8 +87,8 @@ export function PortForwardingPage() {
 	};
 
 	const loadRules = () => {
-		setIsLoading(true);
 		//todo: load port forwarding rules
+		// setIsLoading(true);
 		// ipcRenderer
 		//   .invoke('port-forwarding:getAll')
 		//   .then((result: PortForwardingRule[]) => {
@@ -104,8 +111,8 @@ export function PortForwardingPage() {
 			active: false,
 		};
 
-		setIsLoading(true);
 		//todo: add port forwarding rule
+		// setIsLoading(true);
 		// ipcRenderer
 		//   .invoke('port-forwarding:add', ruleToAdd)
 		//   .then((result: PortForwardingRule) => {
@@ -126,8 +133,8 @@ export function PortForwardingPage() {
 	};
 
 	const handleDeleteRule = (id: string) => {
-		setIsLoading(true);
 		//todo: delete port forwarding rule
+		// setIsLoading(true);
 		// ipcRenderer
 		// .invoke('port-forwarding:delete', id)
 		// .then(() => {
@@ -142,8 +149,8 @@ export function PortForwardingPage() {
 	};
 
 	const handleToggleRule = (id: string, active: boolean) => {
-		setIsLoading(true);
 		//todo: toggle port forwarding rule
+		// setIsLoading(true);
 		// ipcRenderer
 		//   .invoke('port-forwarding:toggle', { id, active })
 		//   .then(() => {
@@ -382,38 +389,47 @@ export function PortForwardingPage() {
 					</h3>
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-						<div>
+						<div className="w-full">
 							<label className="block text-gray-400 text-sm mb-1">Host</label>
-							<select
+							<Select
 								value={selectedHost || ""}
-								onChange={(e) => setSelectedHost(e.target.value || null)}
-								className="w-full bg-[#1a1a24] border border-[#2d2d3a] rounded text-white text-sm px-3 py-2"
+								onValueChange={(value) => setSelectedHost(value || null)}
 							>
-								<option value="">Select a host</option>
-								{hosts.map((host) => (
-									<option key={host.id} value={host.id}>
-										{host.label} ({host.hostname})
-									</option>
-								))}
-							</select>
+								<SelectTrigger className="bg-[#1a1a24] border border-[#2d2d3a] rounded text-white text-sm px-3 py-2 w-full">
+									<SelectValue placeholder="Select a host" />
+								</SelectTrigger>
+								<SelectContent>
+									{hosts.map((host) => (
+										<SelectItem key={host.id} value={host.id}>
+											{host.label} ({host.hostname})
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 						</div>
 
 						<div>
 							<label className="block text-gray-400 text-sm mb-1">Type</label>
-							<select
+							<Select
 								value={newRule.type}
-								onChange={(e) =>
+								onValueChange={(value) =>
 									setNewRule({
 										...newRule,
-										type: e.target.value as "local" | "remote" | "dynamic",
+										type: value as "local" | "remote" | "dynamic",
 									})
 								}
-								className="w-full bg-[#1a1a24] border border-[#2d2d3a] rounded text-white text-sm px-3 py-2"
 							>
-								<option value="local">Local (Local → Remote)</option>
-								<option value="remote">Remote (Remote → Local)</option>
-								<option value="dynamic">Dynamic (SOCKS Proxy)</option>
-							</select>
+								<SelectTrigger className="bg-[#1a1a24] border border-[#2d2d3a] rounded text-white text-sm px-3 py-2 w-full">
+									<SelectValue placeholder="Select type" />
+								</SelectTrigger>
+								<SelectContent className="bg-[#1a1a24] border border-[#2d2d3a] rounded text-white text-sm px-3 py-2 w-full">
+									<SelectItem value="local">Local (Local → Remote)</SelectItem>
+									<SelectItem value="remote">
+										Remote (Remote → Local)
+									</SelectItem>
+									<SelectItem value="dynamic">Dynamic (SOCKS Proxy)</SelectItem>
+								</SelectContent>
+							</Select>
 						</div>
 					</div>
 

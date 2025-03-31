@@ -12,36 +12,12 @@ use rand::RngCore;
 use sha2::{Sha256, Digest};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
-// Add model structs
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Snippet {
-    pub id: String,
-    pub name: String,
-    pub content: String,
-    pub description: Option<String>,
-    pub tags: Vec<String>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserSettings {
-    pub pro_user: bool,
-    pub theme: String,
-    pub font_size: u32,
-    pub terminal_config: HashMap<String, String>,
-    pub custom_settings: HashMap<String, serde_json::Value>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HostGroup {
-    pub id: String,
-    pub name: String,
-    pub description: Option<String>,
-    pub host_ids: Vec<String>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
+// Import models
+use crate::models::{
+    snippet::Snippet,
+    user_settings::UserSettings,
+    host::{Host, HostGroup},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Store {
