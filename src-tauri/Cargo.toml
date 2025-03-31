@@ -9,7 +9,6 @@ edition = "2021"
 rust-version = "1.83.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -20,7 +19,7 @@ tauri = { version = "2", features = ["tray-icon", "image-ico"] }
 tauri-plugin-window-state = { version = "2" }
 tauri-plugin-store = "2"
 tauri-plugin-single-instance = { version = "2" }
-tokio = { version = "1.36.0", features = ["time"] }
+tokio = { version = "1.36.0", features = ["full"] }
 tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-notification = "2"
@@ -30,6 +29,11 @@ tauri-plugin-process = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-deep-link = "2"
 tauri-plugin-log = "2"
+chrono = { version = "0.4", features = ["serde"] }
+rand = "0.8"
+sha2 = "0.10"
+base64 = "0.21"
+dirs = "5.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 dbus = "0.9"
@@ -49,14 +53,13 @@ custom-protocol = ["tauri/custom-protocol"]
 # use this to override sub-dependencies
 # [patch.crates-io]
 # tao = { git = "https://github.com/tauri-apps/tao", branch = "dev" }
-
 [profile.release]
 panic = "abort" # Strip expensive panic clean-up logic
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
 lto = true # Enables link to optimizations
 opt-level = "s" # Optimize for binary size
-# strip = true  # Automatically strip symbols from the binary.
 
+# strip = true  # Automatically strip symbols from the binary.
 [lib]
 name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
