@@ -1,13 +1,13 @@
 export interface PortForwarding {
-  id: string;
-  hostId: string;
-  type: 'local' | 'remote' | 'dynamic';
-  localPort: number;
-  remoteHost?: string;
-  remotePort?: number;
-  description?: string;
-  enabled: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  isProFeature: boolean;
+	id: string;
+	host_id: string;
+	type: "local" | "remote" | "dynamic";
+	local_port: number;
+	remote_host?: string;
+	remote_port?: number;
+	description?: string;
+	enabled: boolean;
+	created_at: Date;
+	updated_at: Date;
+	is_pro_feature: boolean;
 }

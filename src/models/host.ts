@@ -1,42 +1,42 @@
-import { Snippet } from './snippet';
+import { Snippet } from "./snippet";
 
 export interface Host {
-  id: string;
-  label: string;
-  hostname: string;
-  port?: number;
-  username?: string;
-  password?: string;
-  privateKey?: string;
-  privateKeyPath?: string;
-  passphrase?: string;
-  privateKeyPassphrase?: string;
-  tags?: string[];
-  createdAt: string;
-  updatedAt: string;
-  lastConnected?: string;
-  jumpHost?: string;
-  useJumpHost?: boolean;
-  sshOptions?: Record<string, string>;
-  keepAliveInterval?: number;
-  connectionTimeout?: number;
-  description?: string;
-  color?: string;
-  group?: string;
-  favorite?: boolean;
-  groups: string[];
-  authType: 'password' | 'key' | 'agent';
-  snippets: Snippet[];
-  connectionCount: number;
-  isProFeature: false;
+	id: string;
+	label: string;
+	hostname: string;
+	port?: number;
+	username?: string;
+	password?: string;
+	private_key?: string;
+	private_key_path?: string;
+	passphrase?: string;
+	private_key_passphrase?: string;
+	tags?: string[];
+	created_at: string;
+	updated_at: string;
+	last_connected?: string;
+	jump_host?: string;
+	use_jump_host?: boolean;
+	ssh_options?: Record<string, string>;
+	keep_alive_interval?: number;
+	connection_timeout?: number;
+	description?: string;
+	color?: string;
+	group?: string;
+	favorite?: boolean;
+	groups: string[];
+	auth_type: "password" | "key" | "agent";
+	snippets: Snippet[];
+	connection_count: number;
+	is_pro_feature: boolean;
 }
 
 export interface HostGroup {
-  id: string;
-  name: string;
-  color?: string;
-  hosts: string[]; // Array of host IDs
-  parentGroup?: string; // For nested groups
-  createdAt: Date;
-  updatedAt: Date;
+	id: string;
+	name: string;
+	color?: string;
+	hosts: string[]; // Array of host IDs
+	parent_group?: string; // For nested groups
+	created_at: Date;
+	updated_at: Date;
 }

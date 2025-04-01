@@ -230,7 +230,7 @@ export function Header({
 							<Button
 								variant="ghost"
 								size="icon"
-								className={`text-gray-400 hover:text-white hover:bg-[#2d2d3a] ${
+								className={`text-gray-400 hover:text-white hover:bg-[#2d2d3a] relative ${
 									selectedTags.length > 0 ? "text-[#f97316]" : ""
 								}`}
 							>

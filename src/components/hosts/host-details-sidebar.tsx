@@ -18,6 +18,7 @@ import {
 	Ellipsis,
 	ArrowRightToLine,
 	Boxes,
+	Loader2,
 } from "lucide-react";
 import type { Host } from "../../models/host";
 import { Input } from "../ui/input";
@@ -26,7 +27,7 @@ interface HostDetailsSidebarProps {
 	host?: Host;
 	isEditing: boolean;
 	onClose: () => void;
-	onSave: (host: Partial<Host>) => void;
+	onSave: (host: Partial<Host>) => Promise<void>;
 	onConnect?: (host: Host) => void;
 	onDelete?: (host: Host) => void;
 }
@@ -47,7 +48,7 @@ export function HostDetailsSidebar({
 					hostname: "",
 					port: 22,
 					username: "",
-					authType: "password",
+					auth_type: "password",
 					password: "",
 					tags: [],
 					group: "",
@@ -65,10 +66,12 @@ export function HostDetailsSidebar({
 	const [filteredGroups, setFilteredGroups] = useState<string[]>([]);
 	const [allHosts, setAllHosts] = useState<Host[]>([]);
 	const [showMenu, setShowMenu] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
 
 	// Add state for password visibility
 	const [showPassword, setShowPassword] = useState(false);
 
+	const sidebarRef = useRef<HTMLDivElement>(null);
 	const tagInputRef = useRef<HTMLInputElement>(null);
 	const groupInputRef = useRef<HTMLInputElement>(null);
 	const tagSuggestionsRef = useRef<HTMLDivElement>(null);
@@ -86,7 +89,7 @@ export function HostDetailsSidebar({
 				hostname: "",
 				port: 22,
 				username: "",
-				authType: "password",
+				auth_type: "password",
 				password: "",
 				tags: [],
 				group: "",
@@ -200,6 +203,22 @@ export function HostDetailsSidebar({
 		};
 	}, []);
 
+	//close sidebar if clicked outside
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				sidebarRef.current &&
+				!sidebarRef.current.contains(event.target as Node)
+			) {
+				onClose();
+			}
+		};
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => {
+			document.removeEventListener("mousedown", handleClickOutside);
+		};
+	}, []);
+
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = e.target;
 		setFormData((prev) => ({
@@ -208,9 +227,9 @@ export function HostDetailsSidebar({
 		}));
 	};
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
+		setIsLoading(true);
 		e.preventDefault();
-
 		// Ensure we're sending the correct data structure
 		const dataToSave = {
 			...formData,
@@ -219,7 +238,10 @@ export function HostDetailsSidebar({
 		};
 
 		console.log("Saving host data:", dataToSave);
-		onSave(dataToSave);
+		setTimeout(async () => {
+			await onSave(dataToSave);
+		}, 500);
+		setIsLoading(false);
 	};
 
 	const handleConnect = () => {
@@ -331,7 +353,10 @@ export function HostDetailsSidebar({
 	const isNewHost = isEditing && !host;
 
 	return (
-		<div className="absolute top-0 right-0 w-[400px] h-full bg-[#1e1e2a] border-l border-[#2d2d3a]  z-10 transition-all flex flex-col">
+		<div
+			ref={sidebarRef}
+			className="absolute top-0 right-0 w-[400px] h-full bg-[#1e1e2a] border-l border-[#2d2d3a]  z-10 transition-all flex flex-col"
+		>
 			{/* Header */}
 			<div className="bg-[#1a1a24] p-4 flex items-center justify-between">
 				<div>
@@ -753,7 +778,13 @@ export function HostDetailsSidebar({
 								: "bg-[#4ade80] hover:bg-[#22c55e]"
 						}`}
 					>
-						{isEditing ? "Save" : "Connect"}
+						{isLoading ? (
+							<Loader2 className="w-4 h-4 animate-spin" />
+						) : isEditing ? (
+							"Save"
+						) : (
+							"Connect"
+						)}
 					</button>
 				</div>
 			</form>

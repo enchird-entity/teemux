@@ -110,11 +110,8 @@ export function HostList({
 								key={host.id}
 								host={host}
 								isSelected={selectedHostId === host.id}
-								onClick={(hostId) => onHostSelect && onHostSelect(host)}
-								onEdit={onEditHost ? (hostId) => onEditHost(host) : undefined}
-								onDelete={
-									onDeleteHost ? (hostId) => onDeleteHost(host) : undefined
-								}
+								onEdit={onEditHost ? () => onEditHost(host) : undefined}
+								onDelete={onDeleteHost ? () => onDeleteHost(host) : undefined}
 								compact={viewMode === "list"}
 							/>
 						))}

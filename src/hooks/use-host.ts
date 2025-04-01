@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useState, useCallback } from "react";
 import type { Host } from "../models/host";
+import { debug } from "@tauri-apps/plugin-log";
 
 export const useHost = () => {
 	const [isLoading, setIsLoading] = useState(false);
@@ -38,9 +39,17 @@ export const useHost = () => {
 		setIsLoading(true);
 		setError(null);
 		try {
-			const savedHost = await invoke<Host>("save_host", { host });
+			debug(JSON.stringify(host), {
+				keyValues: {
+					host: JSON.stringify(host),
+				},
+			});
+			const savedHost = await invoke<Host>("save_host", {
+				host,
+			});
 			return savedHost;
 		} catch (err) {
+			debug(`===> useHost: Error saving host: ${err}`);
 			setError(err instanceof Error ? err.message : "Failed to save host");
 			return null;
 		} finally {

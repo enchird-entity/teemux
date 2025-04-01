@@ -103,6 +103,7 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2.2.7",
     "@types/js-cookie": "^3.0.6",
+    "@types/ssh2": "^1.15.4",
     "@vitejs/plugin-react": "^4.3.4",
     "chai": "^5.1.2",
     "concurrently": "^9.1.2",

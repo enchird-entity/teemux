@@ -12,9 +12,10 @@ use ssh2::Session as SSH2Session; // Changed to ssh2 to match common Rust SSH li
 use std::collections::HashMap;
 use std::io::{Read, Write};
 // use std::net::TcpStream as StdTcpStream;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 pub struct SSHManager {
@@ -186,12 +187,12 @@ impl SSHManager {
     self
       .sessions
       .lock()
-      .unwrap()
+      .await
       .insert(session_id.clone(), new_session.clone());
     self
       .connections
       .lock()
-      .unwrap()
+      .await
       .insert(session_id.clone(), session);
 
     self.create_shell(&session_id).await?;
@@ -201,7 +202,7 @@ impl SSHManager {
   }
 
   async fn create_shell(&self, session_id: &str) -> Result<(), AppError> {
-    let mut connections = self.connections.lock().unwrap();
+    let mut connections = self.connections.lock().await;
     let session = connections
       .get_mut(session_id)
       .ok_or_else(|| AppError::SessionError("Session not found".to_string()))?;
@@ -220,7 +221,7 @@ impl SSHManager {
     if let Some(terminal_id) = self
       .sessions
       .lock()
-      .unwrap()
+      .await
       .get(session_id)
       .and_then(|s| Some(s.terminal_id.as_ref()))
     {
@@ -238,20 +239,20 @@ impl SSHManager {
     Ok(())
   }
 
-  pub fn disconnect(&self, session_id: &str) -> Result<(), AppError> {
+  pub async fn disconnect(&self, session_id: &str) -> Result<(), AppError> {
     info!("SSH Manager: Disconnecting session {}", session_id);
 
-    if let Some(session) = self.connections.lock().unwrap().remove(session_id) {
+    if let Some(session) = self.connections.lock().await.remove(session_id) {
       session
         .disconnect(None, "Disconnecting", None)
         .map_err(|e| AppError::SshError(format!("Disconnect failed: {}", e)))?;
     }
 
-    let mut sessions = self.sessions.lock().unwrap();
+    let mut sessions = self.sessions.lock().await;
     if let Some(session) = sessions.get_mut(session_id) {
       session.status = SessionStatus::Disconnected;
       session.end_time =
-        Some(chrono::DateTime::<chrono::Utc>::from(SystemTime::now()).to_rfc3339()); // Convert to String
+        Some(chrono::DateTime::<chrono::Utc>::from(SystemTime::now()).to_rfc3339());
       let destroy_future = self.terminal_manager.destroy_terminal(&session.terminal_id);
       let result = tokio::runtime::Handle::current().block_on(destroy_future);
       if !result {
@@ -265,7 +266,7 @@ impl SSHManager {
   }
 
   pub async fn setup_sftp(&self, session_id: &str) -> Result<bool, AppError> {
-    let mut connections = self.connections.lock().unwrap();
+    let mut connections = self.connections.lock().await;
     let session = connections
       .get_mut(session_id)
       .ok_or_else(|| AppError::SessionError("Session not found".to_string()))?;
@@ -274,7 +275,7 @@ impl SSHManager {
       .sftp()
       .map_err(|e| AppError::SshError(format!("SFTP setup failed: {}", e)))?;
 
-    if let Some(session) = self.sessions.lock().unwrap().get_mut(session_id) {
+    if let Some(session) = self.sessions.lock().await.get_mut(session_id) {
       session.sftp_enabled = Some(true);
     }
 
@@ -323,16 +324,16 @@ impl SSHManager {
   //   Ok(Uuid::new_v4().to_string())
   // }
 
-  pub fn get_session(&self, session_id: &str) -> Option<Session> {
-    self.sessions.lock().unwrap().get(session_id).cloned()
+  pub async fn get_session(&self, session_id: &str) -> Option<Session> {
+    self.sessions.lock().await.get(session_id).cloned()
   }
 
-  pub fn get_all_sessions(&self) -> Vec<Session> {
-    self.sessions.lock().unwrap().values().cloned().collect()
+  pub async fn get_all_sessions(&self) -> Vec<Session> {
+    self.sessions.lock().await.values().cloned().collect()
   }
 
-  pub fn remove_session(&self, session_id: &str) -> bool {
-    self.sessions.lock().unwrap().remove(session_id).is_some()
+  pub async fn remove_session(&self, session_id: &str) -> bool {
+    self.sessions.lock().await.remove(session_id).is_some()
   }
 }
 
@@ -364,7 +365,7 @@ mod tests {
       color: None,
       group: None,
       favorite: Some(false),
-      groups: Vec::new(),
+      groups: Some(Vec::new()),
       snippets: Vec::new(),
       connection_count: 0,
       is_pro_feature: false,

@@ -21,7 +21,7 @@ export const TerminalPage: React.FC<TerminalPageProps> = ({ session }) => {
 	useEffect(() => {
 		const loadHost = async () => {
 			try {
-				const hostData = await getHost(session.hostId);
+				const hostData = await getHost(session.host_id);
 				if (hostData) {
 					setHost(hostData);
 					// Add initial connection log
@@ -41,7 +41,7 @@ export const TerminalPage: React.FC<TerminalPageProps> = ({ session }) => {
 		};
 
 		loadHost();
-	}, [session.hostId, getHost]);
+	}, [session.host_id, getHost]);
 
 	const handleClose = async () => {
 		try {
@@ -67,7 +67,7 @@ export const TerminalPage: React.FC<TerminalPageProps> = ({ session }) => {
 	if (error) {
 		return (
 			<ConnectionError
-				hostId={session.hostId}
+				hostId={session.host_id}
 				hostLabel={host?.label || "Unknown Host"}
 				hostAddress={
 					host ? `${host.username}@${host.hostname}:${host.port || 22}` : ""
@@ -83,7 +83,7 @@ export const TerminalPage: React.FC<TerminalPageProps> = ({ session }) => {
 	if (isConnecting && host) {
 		return (
 			<ConnectionLoading
-				hostId={session.hostId}
+				hostId={session.host_id}
 				hostLabel={host.label}
 				hostAddress={`${host.username}@${host.hostname}:${host.port || 22}`}
 				logs={connectionLogs}
@@ -94,9 +94,9 @@ export const TerminalPage: React.FC<TerminalPageProps> = ({ session }) => {
 
 	return (
 		<Terminal
-			terminalId={session.terminalId}
+			terminalId={session.terminal_id}
 			sessionId={session.id}
-			hostId={session.hostId}
+			hostId={session.host_id}
 			onClose={handleClose}
 		/>
 	);

@@ -83,6 +83,7 @@ pub fn run() {
       Arc::new(TerminalManager::new(Arc::new(MockWindowHandler {}))),
       Arc::new(SnippetManager::new()),
     ))
+    .manage(TerminalManager::new(Arc::new(MockWindowHandler {})))
     // custom commands
     .invoke_handler(tauri::generate_handler![
       tray_update_lang,

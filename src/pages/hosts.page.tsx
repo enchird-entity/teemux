@@ -45,8 +45,15 @@ export const HostsPage = () => {
 	const loadHosts = async () => {
 		setIsLoading(true);
 		//todo: get hosts from secure storage
-		const hosts = await getAllHosts();
-		debug(`HostsPage: Loaded ${hosts.length} hosts`);
+		try {
+			const hosts = await getAllHosts();
+			debug(`Hosts: ${JSON.stringify(hosts, null, 2)}`);
+			debug(`HostsPage: Loaded ${hosts.length} hosts`);
+			setHosts(hosts);
+		} catch (error) {
+			debug(`HostsPage: Error loading hosts: ${error}`);
+			alert(`Failed to load hosts: ${error}`);
+		}
 
 		// ipcRenderer
 		//   .invoke('hosts:getAll')
@@ -56,11 +63,11 @@ export const HostsPage = () => {
 		//   })
 		//   .catch((err) => {
 		//     console.error('Failed to load hosts:', err);
-		//     toast({
-		//       title: 'Error',
-		//       description: 'Failed to load hosts',
-		//       variant: 'destructive',
-		//     });
+		// toast({
+		//   title: 'Error',
+		//   description: 'Failed to load hosts',
+		//   variant: 'destructive',
+		// });
 		//   })
 		//   .finally(() => {
 		//     setIsLoading(false);
@@ -88,11 +95,11 @@ export const HostsPage = () => {
 				return b.label.localeCompare(a.label);
 			case "newest":
 				return (
-					new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+					new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
 				);
 			case "oldest":
 				return (
-					new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+					new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
 				);
 			default:
 				return 0;
@@ -148,7 +155,7 @@ export const HostsPage = () => {
 	};
 
 	const handleSaveHost = async (hostData: Partial<Host>) => {
-		console.log("Saving host data:", hostData);
+		debug(`===> HostsPage: Saving host data: ${hostData}`);
 
 		// If we're editing an existing host
 		if (editingHost?.id) {
@@ -156,49 +163,56 @@ export const HostsPage = () => {
 				...editingHost,
 				...hostData,
 				id: editingHost.id, // Ensure ID is preserved
+				created_at: editingHost.created_at,
+				updated_at: new Date().toISOString(),
+				last_connected: hostData.last_connected,
+				jump_host: hostData.jump_host,
+				use_jump_host: hostData.use_jump_host,
+				auth_type: hostData.auth_type,
+				connection_count: hostData.connection_count,
 			};
-
-			console.log("Updating existing host:", updatedHost);
 
 			// todo: test and update
 			try {
 				const savedHost = await saveHost(updatedHost);
 				if (savedHost) {
-					console.log("Host updated successfully:", savedHost);
 					setHosts(hosts.map((h) => (h.id === savedHost.id ? savedHost : h)));
 					setIsEditing(false);
 					setEditingHost(undefined);
 				} else {
-					console.error("Error updating host:", savedHost);
+					debug(`===> HostsPage: Error updating host: `);
 				}
 			} catch (error: any) {
-				console.error("Error updating host:", error);
+				debug(`===> HostsPage: Error updating host: ${error}`);
 				alert(`Failed to update host: ${error.message}`);
 			}
 		} else {
 			// We're creating a new host
-			const newHost = {
+			const newHost: Partial<Host> = {
 				...hostData,
 				id: crypto.randomUUID() as string, // Generate a new ID
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				snippets: [],
+				connection_count: 0,
+				is_pro_feature: false,
 			};
 
-			console.log("Creating new host:", newHost);
+			debug(`===> HostsPage: Creating new host: ${newHost}`);
 
 			//todo: add host to secure storage
 			try {
 				const savedHost = await saveHost(newHost);
 				if (savedHost) {
-					console.log("Host created successfully:", savedHost);
+					debug(`===> HostsPage: Host created successfully: ${savedHost}`);
 					setHosts([...hosts, savedHost]);
 					setIsEditing(false);
 					setEditingHost(undefined);
 				} else {
-					console.error("Error updating host:", savedHost);
+					debug(`===> HostsPage: Error updating host: ${savedHost}`);
 				}
 			} catch (error: any) {
-				console.error("Error creating host:", error);
+				debug(`===> HostsPage: Error creating host: ${error}`);
 				alert(`Failed to create host: ${error.message}`);
 			}
 		}
