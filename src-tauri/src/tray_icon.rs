@@ -32,7 +32,8 @@ pub fn create_tray_menu<R: Runtime>(
   // untested, not sure if the macro accepts dynamic languages
   // ENTER rust_i18n::set_locale(lang) IF LOCAL=lang DOES NOT COMPILE
   // .add_item("id".to_string(), t!("Label", locale = lang))
-  // .add_item("id".to_string(), t!("Label")
+  // .add_item("id".to_string(), t!("Label");
+  println!("lang: {}", lang);
   let toggle = MenuItemBuilder::with_id("toggle-visibility", "Hide Window")
     .accelerator("Ctrl+Shift+T")
     .build(app)?;

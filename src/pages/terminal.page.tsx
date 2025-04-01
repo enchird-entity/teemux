@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Terminal } from "../components/terminal";
 import { useSession } from "../hooks/use-session";
 import { useHost } from "../hooks/use-host";
 import { ConnectionLoading } from "../components/connection-loading";
 import { ConnectionError } from "../components/connection-error";
 import type { Session } from "../models/session";
 import type { Host } from "../models/host";
-
+import { Terminal } from "@/components/terminal/terminal";
 interface TerminalPageProps {
 	session: Session;
 }

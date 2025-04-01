@@ -7,15 +7,15 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use chrono::{DateTime, Utc};
 use keyring::Entry;
 use rand::RngCore;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::HashMap, fs, path::PathBuf};
 use tokio::sync::Mutex;
-
 // Import models
 use crate::models::{
   host::{Host, HostGroup},
   snippet::Snippet,
+  ssh_key::SSHKey,
   user_settings::UserSettings,
 };
 
@@ -25,6 +25,7 @@ struct Store {
   snippets: HashMap<String, Snippet>,
   settings: Option<UserSettings>,
   host_groups: HashMap<String, HostGroup>,
+  ssh_keys: HashMap<String, SSHKey>,
 }
 
 impl Store {
@@ -39,6 +40,7 @@ impl Store {
         snippets: HashMap::new(),
         settings: None,
         host_groups: HashMap::new(),
+        ssh_keys: HashMap::new(),
       })
     }
   }
@@ -90,6 +92,27 @@ impl SecureStorage {
         Ok(new_key.to_vec())
       }
     }
+  }
+
+  fn encrypt(&self, data: &str) -> Result<String> {
+    let cipher = Aes256Gcm::new_from_slice(&self.encryption_key)
+      .map_err(|e| anyhow::anyhow!("Failed to create cipher: {}", e))?;
+    let nonce = Nonce::from_slice(&self.encryption_key[..12]);
+    let ciphertext = cipher
+      .encrypt(nonce, data.as_bytes())
+      .map_err(|e| anyhow::anyhow!("Failed to encrypt data: {}", e))?;
+    Ok(BASE64.encode(ciphertext))
+  }
+
+  fn decrypt(&self, data: &str) -> Result<String> {
+    let cipher = Aes256Gcm::new_from_slice(&self.encryption_key)
+      .map_err(|e| anyhow::anyhow!("Failed to create cipher: {}", e))?;
+    let nonce = Nonce::from_slice(&self.encryption_key[..12]);
+    let ciphertext = BASE64.decode(data)?;
+    let decrypted = cipher
+      .decrypt(nonce, ciphertext.as_slice())
+      .map_err(|e| anyhow::anyhow!("Failed to decrypt data: {}", e))?;
+    Ok(String::from_utf8(decrypted)?)
   }
 
   pub async fn save_host(&self, host: Host) -> Result<()> {
@@ -158,19 +181,20 @@ impl SecureStorage {
   }
 
   // ... similar implementations for SSH keys, snippets, etc.
-  pub async fn save_ssh_key(&self, key: SshKey) -> Result<()> {
+  pub async fn save_ssh_key(&self, key: SSHKey) -> Result<()> {
     let mut store = self.store.lock().await;
     store.ssh_keys.insert(key.id.clone(), key);
+
     store.save()?;
     Ok(())
   }
 
-  pub async fn get_ssh_key(&self, key_id: &str) -> Result<Option<SshKey>> {
+  pub async fn get_ssh_key(&self, key_id: &str) -> Result<Option<SSHKey>> {
     let store = self.store.lock().await;
     Ok(store.ssh_keys.get(key_id).cloned())
   }
 
-  pub async fn get_all_ssh_keys(&self) -> Result<Vec<SshKey>> {
+  pub async fn get_all_ssh_keys(&self) -> Result<Vec<SSHKey>> {
     let store = self.store.lock().await;
     Ok(store.ssh_keys.values().cloned().collect())
   }
@@ -237,11 +261,12 @@ impl SecureStorage {
 
     // Generate salt and key
     let mut salt = [0u8; 16];
-    rand::thread_rng().fill_bytes(&mut salt);
+    rand::rng().fill_bytes(&mut salt);
 
-    let mut hasher = Sha256::new();
+    // Derive key
+    let mut hasher = Sha256::default();
     hasher.update(master_password.as_bytes());
-    hasher.update(&salt);
+    hasher.update(salt);
     let key = hasher.finalize();
 
     // Encrypt data
@@ -249,7 +274,9 @@ impl SecureStorage {
     let nonce = Nonce::from_slice(&salt[..12]); // Use part of salt as nonce
 
     let data = serde_json::to_string(&export_data)?;
-    let encrypted = cipher.encrypt(nonce, data.as_bytes())?;
+    let encrypted = cipher
+      .encrypt(nonce, data.as_bytes())
+      .map_err(|e| anyhow::anyhow!("Failed to encrypt data: {}", e))?;
 
     // Combine salt and encrypted data
     let mut result = Vec::with_capacity(salt.len() + encrypted.len());
@@ -273,7 +300,7 @@ impl SecureStorage {
     let (salt, encrypted) = data.split_at(16);
 
     // Derive key
-    let mut hasher = Sha256::new();
+    let mut hasher = Sha256::default();
     hasher.update(master_password.as_bytes());
     hasher.update(salt);
     let key = hasher.finalize();
@@ -282,7 +309,10 @@ impl SecureStorage {
     let cipher = Aes256Gcm::new_from_slice(&key)?;
     let nonce = Nonce::from_slice(&salt[..12]);
 
-    let decrypted = cipher.decrypt(nonce, encrypted)?;
+    let decrypted = match cipher.decrypt(nonce, encrypted.as_ref()) {
+      Ok(data) => data,
+      Err(_) => return Ok(false),
+    };
     let decrypted_str = String::from_utf8(decrypted)?;
     let import_data: serde_json::Value = serde_json::from_str(&decrypted_str)?;
 

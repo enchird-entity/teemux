@@ -1,5 +1,6 @@
 use crate::models::snippet::Snippet;
 use std::sync::{Arc, Mutex};
+use tauri::Emitter;
 use tauri::Window;
 
 pub struct SnippetManager {

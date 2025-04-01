@@ -3,7 +3,6 @@
   all(not(debug_assertions), target_os = "windows"),
   windows_subsystem = "windows"
 )]
-
 use serde::Serialize;
 use std::sync::Mutex;
 use tauri::{
@@ -12,6 +11,7 @@ use tauri::{
   Emitter,
   Manager,
 };
+use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_store;
 use tauri_plugin_window_state;
 
@@ -23,6 +23,13 @@ mod tray_icon;
 mod utils;
 
 use commands::host::{delete_host, get_all_hosts, get_host, save_host, update_host};
+use commands::session::{create_session, end_session, get_all_sessions};
+use commands::terminal::{close_terminal, resize_terminal, send_data};
+use services::secure_storage::SecureStorage;
+use services::snippet_manager::SnippetManager;
+use services::ssh_manager::SSHManager;
+use services::terminal_manager::{MockWindowHandler, TerminalManager};
+use std::sync::Arc;
 use tray_icon::{create_tray_icon, tray_update_lang, TrayState};
 use utils::long_running_thread;
 
@@ -33,11 +40,10 @@ struct SingleInstancePayload {
 }
 
 #[derive(Debug, Default, Serialize)]
-struct Example<'a> {
-  #[serde(rename = "Attribute 1")]
-  attribute_1: &'a str,
-}
-
+// struct Example<'a> {
+//   #[serde(rename = "Attribute 1")]
+//   attribute_1: &'a str,
+// }
 #[cfg(target_os = "linux")]
 pub struct DbusState(Mutex<Option<dbus::blocking::SyncConnection>>);
 
@@ -73,8 +79,26 @@ pub fn run() {
     .plugin(tauri_plugin_notification::init())
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_fs::init())
+    .manage(SSHManager::new(
+      Arc::new(TerminalManager::new(Arc::new(MockWindowHandler {}))),
+      Arc::new(SnippetManager::new()),
+    ))
     // custom commands
-    .invoke_handler(tauri::generate_handler![tray_update_lang, process_file,])
+    .invoke_handler(tauri::generate_handler![
+      tray_update_lang,
+      process_file,
+      delete_host,
+      get_all_hosts,
+      get_host,
+      save_host,
+      update_host,
+      create_session,
+      end_session,
+      get_all_sessions,
+      close_terminal,
+      resize_terminal,
+      send_data
+    ])
     // allow only one instance and propagate args and cwd to existing instance
     .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
       app
@@ -98,6 +122,11 @@ pub fn run() {
       app.manage(DbusState(Mutex::new(
         dbus::blocking::SyncConnection::new_session().ok(),
       )));
+
+      // Initialize secure storage
+      let storage = tauri::async_runtime::block_on(SecureStorage::new())
+        .expect("Failed to initialize secure storage");
+      app.manage(storage);
 
       // TODO: AUTOSTART
       // FOLLOW: https://v2.tauri.app/plugin/autostart/

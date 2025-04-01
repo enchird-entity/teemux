@@ -1,27 +1,15 @@
-import React, {
-	useState,
-	useEffect,
-	forwardRef,
-	useImperativeHandle,
-	useCallback,
-} from "react";
-import { v4 as uuidv4 } from "uuid";
+import React, { useState, useEffect, useCallback } from "react";
 import { HostList } from "../components/hosts/host-list";
 import type { Host } from "../models/host";
 import { HostDetailsSidebar } from "../components/hosts/host-details-sidebar";
 import { useConnection } from "../contexts/connection.context";
 import { Header } from "@/components/hosts/header";
-import { HostSelector } from "@/components/hosts/host-selector";
+import { useHost } from "@/hooks/use-host";
+import { debug } from "@tauri-apps/plugin-log";
 
 export interface HostsPageRef {
 	openAddHostDialog: () => void;
 	openEditHostDialog: (hostId: string) => void;
-}
-
-interface HostsPageProps {
-	viewMode?: "grid" | "list";
-	selectedTags?: string[];
-	sortMode?: "a-z" | "z-a" | "newest" | "oldest";
 }
 
 export const HostsPage = () => {
@@ -40,6 +28,7 @@ export const HostsPage = () => {
 
 	// Get the connect function from the ConnectionContext
 	const { connect, setIsHostSelectorOpen } = useConnection();
+	const { getAllHosts, saveHost } = useHost();
 
 	useEffect(() => {
 		// Load hosts from the main process
@@ -53,9 +42,12 @@ export const HostsPage = () => {
 		}
 	}, [selectedHostId]);
 
-	const loadHosts = () => {
+	const loadHosts = async () => {
 		setIsLoading(true);
 		//todo: get hosts from secure storage
+		const hosts = await getAllHosts();
+		debug(`HostsPage: Loaded ${hosts.length} hosts`);
+
 		// ipcRenderer
 		//   .invoke('hosts:getAll')
 		//   .then((result: Host[]) => {
@@ -155,7 +147,7 @@ export const HostsPage = () => {
 		}
 	};
 
-	const handleSaveHost = (hostData: Partial<Host>) => {
+	const handleSaveHost = async (hostData: Partial<Host>) => {
 		console.log("Saving host data:", hostData);
 
 		// If we're editing an existing host
@@ -168,49 +160,47 @@ export const HostsPage = () => {
 
 			console.log("Updating existing host:", updatedHost);
 
-			//todo: update host in secure storage
-			//   ipcRenderer
-			//     .invoke('hosts:update', updatedHost)
-			//     .then((savedHost: Host) => {
-			//       console.log('Host updated successfully:', savedHost);
-
-			//       // Update the hosts list
-			//       setHosts(hosts.map((h) => (h.id === savedHost.id ? savedHost : h)));
-
-			//       setIsEditing(false);
-			//       setEditingHost(undefined);
-			//     })
-			//     .catch((error) => {
-			//       console.error('Error updating host:', error);
-			//       alert(`Failed to update host: ${error.message}`);
-			//     });
+			// todo: test and update
+			try {
+				const savedHost = await saveHost(updatedHost);
+				if (savedHost) {
+					console.log("Host updated successfully:", savedHost);
+					setHosts(hosts.map((h) => (h.id === savedHost.id ? savedHost : h)));
+					setIsEditing(false);
+					setEditingHost(undefined);
+				} else {
+					console.error("Error updating host:", savedHost);
+				}
+			} catch (error: any) {
+				console.error("Error updating host:", error);
+				alert(`Failed to update host: ${error.message}`);
+			}
 		} else {
 			// We're creating a new host
 			const newHost = {
 				...hostData,
-				id: crypto.randomUUID(), // Generate a new ID
-				createdAt: new Date(),
-				updatedAt: new Date(),
+				id: crypto.randomUUID() as string, // Generate a new ID
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
 			};
 
 			console.log("Creating new host:", newHost);
 
 			//todo: add host to secure storage
-			//   ipcRenderer
-			//     .invoke('hosts:add', newHost)
-			//     .then((savedHost: Host) => {
-			//       console.log('Host created successfully:', savedHost);
-
-			//       // Add the new host to the list
-			//       setHosts([...hosts, savedHost]);
-
-			//       setIsEditing(false);
-			//       setEditingHost(undefined);
-			//     })
-			//     .catch((error) => {
-			//       console.error('Error creating host:', error);
-			//       alert(`Failed to create host: ${error.message}`);
-			//     });
+			try {
+				const savedHost = await saveHost(newHost);
+				if (savedHost) {
+					console.log("Host created successfully:", savedHost);
+					setHosts([...hosts, savedHost]);
+					setIsEditing(false);
+					setEditingHost(undefined);
+				} else {
+					console.error("Error updating host:", savedHost);
+				}
+			} catch (error: any) {
+				console.error("Error creating host:", error);
+				alert(`Failed to create host: ${error.message}`);
+			}
 		}
 	};
 

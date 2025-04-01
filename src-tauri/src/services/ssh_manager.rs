@@ -11,7 +11,7 @@ use ssh2::Channel;
 use ssh2::Session as SSH2Session; // Changed to ssh2 to match common Rust SSH lib
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::net::TcpStream as StdTcpStream;
+// use std::net::TcpStream as StdTcpStream;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::net::TcpStream;
@@ -275,53 +275,53 @@ impl SSHManager {
       .map_err(|e| AppError::SshError(format!("SFTP setup failed: {}", e)))?;
 
     if let Some(session) = self.sessions.lock().unwrap().get_mut(session_id) {
-      session.sftp_enabled = true;
+      session.sftp_enabled = Some(true);
     }
 
     Ok(true)
   }
 
   // Rest of the methods remain largely unchanged
-  //   pub fn setup_port_forwarding(
-  //     &self,
-  //     session_id: &str,
-  //     forwarding_type: &str,
-  //     local_port: u16,
-  //     remote_host: Option<String>,
-  //     remote_port: Option<u16>,
-  //   ) -> Result<String, AppError> {
-  //     let mut connections = self.connections.lock().unwrap();
-  //     let session = connections
-  //       .get_mut(session_id)
-  //       .ok_or_else(|| AppError::SessionError("Session not found".to_string()))?;
+  // pub fn setup_port_forwarding(
+  //   &self,
+  //   session_id: &str,
+  //   forwarding_type: &str,
+  //   local_port: u16,
+  //   remote_host: Option<String>,
+  //   remote_port: Option<u16>,
+  // ) -> Result<String, AppError> {
+  //   let mut connections = self.connections.lock().unwrap();
+  //   let session = connections
+  //     .get_mut(session_id)
+  //     .ok_or_else(|| AppError::SessionError("Session not found".to_string()))?;
 
-  // match forwarding_type {
-  //   "local" => {
-  //     let rhost = remote_host
-  //       .ok_or_else(|| AppError::ValidationError("Missing remote host".to_string()))?;
-  //     let rport = remote_port
-  //       .ok_or_else(|| AppError::ValidationError("Missing remote port".to_string()))?;
-  //     session.tcpip_forward(&rhost, rport)?;
+  //   match forwarding_type {
+  //     "local" => {
+  //       let rhost = remote_host
+  //         .ok_or_else(|| AppError::ValidationError("Missing remote host".to_string()))?;
+  //       let rport = remote_port
+  //         .ok_or_else(|| AppError::ValidationError("Missing remote port".to_string()))?;
+  //       session.tcpip_forward(&rhost, rport)?;
+  //     }
+  //     "remote" => {
+  //       let rhost = remote_host
+  //         .ok_or_else(|| AppError::ValidationError("Missing remote host".to_string()))?;
+  //       let rport = remote_port
+  //         .ok_or_else(|| AppError::ValidationError("Missing remote port".to_string()))?;
+  //       session.request_port_forward(ssh2::ForwardType::Remote, local_port, &rhost, rport)?;
+  //     }
+  //     "dynamic" => {
+  //       session.tcpip_forward("127.0.0.1", local_port)?;
+  //     }
+  //     _ => {
+  //       return Err(AppError::ValidationError(
+  //         "Invalid forwarding type".to_string(),
+  //       ))
+  //     }
   //   }
-  //   "remote" => {
-  //     let rhost = remote_host
-  //       .ok_or_else(|| AppError::ValidationError("Missing remote host".to_string()))?;
-  //     let rport = remote_port
-  //       .ok_or_else(|| AppError::ValidationError("Missing remote port".to_string()))?;
-  //     session.request_port_forward(ssh2::ForwardType::Remote, local_port, &rhost, rport)?;
-  //   }
-  //   "dynamic" => {
-  //     session.tcpip_forward("127.0.0.1", local_port)?;
-  //   }
-  //   _ => {
-  //     return Err(AppError::ValidationError(
-  //       "Invalid forwarding type".to_string(),
-  //     ))
-  //   }
+
+  //   Ok(Uuid::new_v4().to_string())
   // }
-
-  // Ok(Uuid::new_v4().to_string())
-  //   }
 
   pub fn get_session(&self, session_id: &str) -> Option<Session> {
     self.sessions.lock().unwrap().get(session_id).cloned()
@@ -339,15 +339,15 @@ impl SSHManager {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::services::snippet_manager::SnippetManager;
+  use crate::services::terminal_manager::{MockWindowHandler, TerminalManager};
 
   #[tokio::test]
   async fn test_ssh_manager() {
     let snippet_manager = Arc::new(SnippetManager::new());
-    let terminal_manager = Arc::new(TerminalManager::new(snippet_manager.clone()));
-    let ssh_manager = SSHManager::new(
-      terminal_manager,
-      Arc::new(snippet_manager.clone()) as Arc<dyn WindowHandler + 'static>,
-    );
+    let window_handler = Arc::new(MockWindowHandler {});
+    let terminal_manager = Arc::new(TerminalManager::new(window_handler));
+    let ssh_manager = SSHManager::new(terminal_manager, snippet_manager);
 
     let ssh_options = HashMap::new();
 

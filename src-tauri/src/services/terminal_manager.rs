@@ -28,6 +28,14 @@ pub trait WindowHandler: Send + Sync + 'static {
   fn send_to_all_windows(&self, event: &str, payload: serde_json::Value);
 }
 
+pub struct MockWindowHandler {}
+
+impl WindowHandler for MockWindowHandler {
+  fn send_to_all_windows(&self, event: &str, payload: serde_json::Value) {
+    println!("send_to_all_windows: {} {}", event, payload);
+  }
+}
+
 impl TerminalManager {
   pub fn new(window_handler: Arc<dyn WindowHandler>) -> Self {
     Self {
