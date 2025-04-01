@@ -60,6 +60,7 @@ export function useTerminalInstance({
 					fontFamily: 'Menlo, Monaco, "Courier New", monospace',
 					fontSize: 14,
 					lineHeight: 1.2,
+					allowProposedApi: true,
 					theme: {
 						background: "#1a1a24",
 						foreground: "#f0f0f0",

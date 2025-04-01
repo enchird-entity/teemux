@@ -1,40 +1,28 @@
 import React, { useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useConnection } from "../contexts/connection.context";
-import { Terminal } from "../components/terminal/terminal";
 import { ConnectionLoading } from "../components/connection-loading";
 import { ConnectionError } from "../components/connection-error";
 
-export const TerminalPage: React.FC = () => {
-	const { hostId } = useParams<{ hostId: string }>();
+export const TerminalLoadingPage: React.FC = () => {
 	const navigate = useNavigate();
-	const {
-		sessionsByHostId,
-		endSession,
-		connectingHost,
-		isConnecting,
-		connectionLogs,
-		clearConnectionError,
-	} = useConnection();
-
-	const session = hostId ? sessionsByHostId[hostId] : null;
+	const { hostId } = useParams<{ hostId: string }>();
+	const { connectingHost, isConnecting, connectionLogs, clearConnectionError } =
+		useConnection();
 
 	useEffect(() => {
-		if (!session && !isConnecting) {
-			navigate("/vaults/hosts");
+		if (!hostId) {
+			navigate("/");
+			return;
 		}
-	}, [session, isConnecting, navigate]);
 
-	const handleClose = async () => {
-		if (hostId) {
-			const success = await endSession(hostId);
-			if (success) {
-				navigate("/vaults/hosts");
-			}
+		// If we're not connecting and there's no connecting host, navigate back
+		if (!isConnecting && !connectingHost) {
+			navigate("/");
 		}
-	};
+	}, [hostId, isConnecting, connectingHost, navigate]);
 
-	const handleRetryConnection = () => {
+	const handleRetryConnection = async () => {
 		if (hostId) {
 			clearConnectionError();
 			// The connection context will handle the retry
@@ -43,10 +31,9 @@ export const TerminalPage: React.FC = () => {
 
 	const handleCancelConnection = () => {
 		clearConnectionError();
-		navigate("/vaults/hosts");
+		navigate("/");
 	};
 
-	// Show error state if there's a connection error
 	if (connectingHost?.status === "error") {
 		return (
 			<ConnectionError
@@ -61,7 +48,6 @@ export const TerminalPage: React.FC = () => {
 		);
 	}
 
-	// Show loading state while connecting
 	if (isConnecting && connectingHost) {
 		return (
 			<ConnectionLoading
@@ -70,18 +56,6 @@ export const TerminalPage: React.FC = () => {
 				hostAddress={connectingHost.address}
 				logs={connectionLogs}
 				onCancel={handleCancelConnection}
-			/>
-		);
-	}
-
-	// Show terminal when connected
-	if (session) {
-		return (
-			<Terminal
-				terminalId={session.terminal_id}
-				sessionId={session.id}
-				hostId={hostId || ""}
-				onClose={handleClose}
 			/>
 		);
 	}

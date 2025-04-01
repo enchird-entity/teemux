@@ -12,12 +12,12 @@ use ssh2::Session as SSH2Session; // Changed to ssh2 to match common Rust SSH li
 use std::collections::HashMap;
 use std::io::{Read, Write};
 // use std::net::TcpStream as StdTcpStream;
+use colored::*;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use uuid::Uuid;
-
 pub struct SSHManager {
   connections: Arc<Mutex<HashMap<String, SSH2Session>>>,
   sessions: Arc<Mutex<HashMap<String, Session>>>,
@@ -92,9 +92,9 @@ impl SSHManager {
   pub async fn connect(&self, host: &Host, ssh_key: Option<&SSHKey>) -> Result<Session, AppError> {
     info!(
       "SSH Manager: Connecting to {}:{} as {}",
-      host.hostname,
-      host.port.unwrap_or(22),
-      host.username.as_ref().unwrap_or(&"".to_string())
+      host.hostname.to_string().green(),
+      host.port.unwrap_or(22).to_string().green(),
+      host.username.as_ref().unwrap_or(&"".to_string()).blue()
     );
 
     // Validation
@@ -157,7 +157,7 @@ impl SSHManager {
           .map_err(|e| AppError::SshError(format!("Agent auth failed: {}", e)))?;
       }
     }
-    info!("SSH Authentication successful");
+    info!("{}", "SSH Authentication successful");
 
     let session_id = format!(
       "session-{}-{}",
@@ -242,10 +242,20 @@ impl SSHManager {
   pub async fn disconnect(&self, session_id: &str) -> Result<(), AppError> {
     info!("SSH Manager: Disconnecting session {}", session_id);
 
-    if let Some(session) = self.connections.lock().await.remove(session_id) {
+    // Log active connections before attempting to disconnect
+    let mut connections = self.connections.lock().await;
+    info!(
+      "SSH Manager: Active connections before disconnect: {:?}",
+      connections.keys().collect::<Vec<_>>()
+    );
+
+    if let Some(session) = connections.remove(session_id) {
+      info!("SSH Manager: Found session to disconnect: {}", session_id);
       session
         .disconnect(None, "Disconnecting", None)
         .map_err(|e| AppError::SshError(format!("Disconnect failed: {}", e)))?;
+    } else {
+      info!("SSH Manager: No session found with ID: {}", session_id);
     }
 
     let mut sessions = self.sessions.lock().await;

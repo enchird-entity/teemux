@@ -12,7 +12,7 @@ interface TerminalSize {
 	rows: number;
 }
 
-export const useTerminal = (terminalId: string) => {
+export const useTerminal = () => {
 	const [isConnected, setIsConnected] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -21,17 +21,24 @@ export const useTerminal = (terminalId: string) => {
 		const unlisten = Promise.all([
 			listen("terminal:data", (event: any) => {
 				const data = event.payload as TerminalData;
-				if (data.terminalId === terminalId) {
-					// Handle incoming terminal data
-					// This will be used by the terminal component
-				}
+				console.log(data);
+
+				sendData(data.terminalId, data.data);
+
+				// if (data.terminalId === terminalId) {
+				// 	// Handle incoming terminal data
+				// 	// This will be used by the terminal component
+				// 	console.log("Terminal data received:", data);
+				// }
 			}),
 			listen("terminal:error", (event: any) => {
 				const error = event.payload as { terminalId: string; error: string };
-				if (error.terminalId === terminalId) {
-					setError(error.error);
-					setIsConnected(false);
-				}
+				console.log(error);
+
+				// if (error.terminalId === terminalId) {
+				// 	setError(error.error);
+				// 	setIsConnected(false);
+				// }
 			}),
 		]);
 
@@ -40,24 +47,21 @@ export const useTerminal = (terminalId: string) => {
 				unlisteners.forEach((unlisten) => unlisten());
 			});
 		};
-	}, [terminalId]);
+	}, []);
 
-	const sendData = useCallback(
-		async (data: string) => {
-			try {
-				await invoke("terminal_send_data", {
-					terminalId,
-					data,
-				});
-			} catch (err) {
-				setError(err instanceof Error ? err.message : "Failed to send data");
-			}
-		},
-		[terminalId]
-	);
+	const sendData = useCallback(async (terminalId: string, data: string) => {
+		try {
+			await invoke("terminal_send_data", {
+				terminalId,
+				data,
+			});
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to send data");
+		}
+	}, []);
 
 	const resizeTerminal = useCallback(
-		async (size: TerminalSize) => {
+		async (terminalId: string, size: TerminalSize) => {
 			try {
 				await invoke("terminal_resize", {
 					terminalId,
@@ -69,17 +73,17 @@ export const useTerminal = (terminalId: string) => {
 				);
 			}
 		},
-		[terminalId]
+		[]
 	);
 
-	const closeTerminal = useCallback(async () => {
+	const closeTerminal = useCallback(async (terminalId: string) => {
 		try {
 			await invoke("terminal_close", { terminalId });
 			setIsConnected(false);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to close terminal");
 		}
-	}, [terminalId]);
+	}, []);
 
 	return {
 		isConnected,

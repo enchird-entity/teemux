@@ -110,11 +110,11 @@ export function HostSelector({}: HostSelectorProps) {
 				return b.label.localeCompare(a.label);
 			case "newest":
 				return (
-					new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+					new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
 				);
 			case "oldest":
 				return (
-					new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+					new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
 				);
 			default:
 				return 0;

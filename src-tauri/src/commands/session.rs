@@ -39,6 +39,7 @@ pub async fn end_session(
   session_id: String,
 ) -> Result<Session, String> {
   // Disconnect the SSH session
+  println!("[Removing] SSH Session: {}", session_id);
   ssh_manager
     .disconnect(&session_id)
     .await

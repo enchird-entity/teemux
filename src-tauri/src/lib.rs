@@ -69,7 +69,15 @@ pub fn run() {
   main_prelude();
   // main window should be invisible to allow either the setup delay or the plugin to show the window
   tauri::Builder::default()
-    .plugin(tauri_plugin_log::Builder::new().build())
+    .plugin(
+      tauri_plugin_log::Builder::new()
+        .targets([
+          Target::new(TargetKind::Stdout),
+          Target::new(TargetKind::LogDir { file_name: None }),
+          Target::new(TargetKind::Webview),
+        ])
+        .build(),
+    )
     .plugin(tauri_plugin_opener::init())
     .plugin(tauri_plugin_store::Builder::new().build())
     .plugin(tauri_plugin_updater::Builder::new().build())

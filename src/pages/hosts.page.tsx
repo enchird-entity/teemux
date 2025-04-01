@@ -27,13 +27,13 @@ export const HostsPage = () => {
 	);
 
 	// Get the connect function from the ConnectionContext
-	const { connect, setIsHostSelectorOpen } = useConnection();
+	const { connect, setIsHostSelectorOpen, activeSessions } = useConnection();
 	const { getAllHosts, saveHost } = useHost();
 
 	useEffect(() => {
 		// Load hosts from the main process
 		loadHosts();
-	}, []);
+	}, [activeSessions]);
 
 	// When a host is selected, open the sidebar to show details
 	useEffect(() => {
@@ -47,7 +47,6 @@ export const HostsPage = () => {
 		//todo: get hosts from secure storage
 		try {
 			const hosts = await getAllHosts();
-			debug(`Hosts: ${JSON.stringify(hosts, null, 2)}`);
 			debug(`HostsPage: Loaded ${hosts.length} hosts`);
 			setHosts(hosts);
 		} catch (error) {

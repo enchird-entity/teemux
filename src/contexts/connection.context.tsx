@@ -12,10 +12,13 @@ import { ConnectionErrorToast } from "../components/connection-error-toast";
 import { ConnectionError } from "../components/connection-error";
 import { useSession } from "../hooks/use-session";
 import { useHost } from "../hooks/use-host";
+import { useNavigate } from "react-router-dom";
+import { debug, error, info } from "@tauri-apps/plugin-log";
 
 interface ConnectionContextType {
 	// Connection state
 	activeSessions: Session[];
+	sessionsByHostId: Record<string, Session>;
 	activeTab: string | null;
 	connectingHost: {
 		id: string;
@@ -34,6 +37,8 @@ interface ConnectionContextType {
 	disconnect: (sessionId: string) => void;
 	setActiveTab: (sessionId: string | null) => void;
 	clearConnectionError: () => void;
+	endSession: (hostId: string) => Promise<boolean>;
+	setConnectingHost: (host: any) => void;
 }
 
 const ConnectionContext = createContext<ConnectionContextType | undefined>(
@@ -45,8 +50,12 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
 	const { sessions, createSession, endSession, getAllSessions } = useSession();
 	const { getHost } = useHost();
+	const navigate = useNavigate();
 
 	const [activeSessions, setActiveSessions] = useState<Session[]>([]);
+	const [sessionsByHostId, setSessionsByHostId] = useState<
+		Record<string, Session>
+	>({});
 	const [activeTab, setActiveTab] = useState<string | null>(null);
 	const [connectingHost, setConnectingHost] = useState<{
 		id: string;
@@ -64,6 +73,11 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 	useEffect(() => {
 		getAllSessions().then((sessions) => {
 			setActiveSessions(sessions);
+			const sessionsMap = sessions.reduce((acc, session) => {
+				acc[session.host_id] = session;
+				return acc;
+			}, {} as Record<string, Session>);
+			setSessionsByHostId(sessionsMap);
 			if (sessions.length > 0) {
 				setActiveTab(sessions[0]?.id || null);
 			}
@@ -73,13 +87,21 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 	// Update active sessions when sessions state changes
 	useEffect(() => {
 		setActiveSessions(sessions);
+		const sessionsMap = sessions.reduce((acc, session) => {
+			acc[session.host_id] = session;
+			return acc;
+		}, {} as Record<string, Session>);
+		setSessionsByHostId(sessionsMap);
 	}, [sessions]);
+
+	const [connCount, setConnCount] = useState(0);
 
 	// Connect to a host
 	const connect = useCallback(
 		async (hostId: string) => {
+			setConnCount(connCount + 1);
 			try {
-				console.log(`ConnectionContext: Connecting to host with ID: ${hostId}`);
+				info(`ConnectionContext: Connecting to host with ID: ${hostId}`);
 				setIsConnecting(true);
 
 				// Clear previous logs and start new connection log
@@ -90,7 +112,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 				const host = await getHost(hostId);
 
 				if (!host) {
-					console.error(`Host not found with ID: ${hostId}`);
+					error(`Host not found with ID: ${hostId}`);
 					setIsConnecting(false);
 					throw new Error("Host not found");
 				}
@@ -98,10 +120,6 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 				console.log(
 					`ConnectionContext: Found host: ${host.label} (${host.hostname})`
 				);
-
-				const hostAddress = `${host.hostname}${
-					host.port ? `:${host.port}` : ""
-				}`;
 
 				// Add initial connection log
 				logs.push(
@@ -121,6 +139,11 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 					logs: logs,
 				});
 
+				setActiveTab(hostId);
+
+				// Navigate directly to terminal page
+				navigate(`/terminal/${hostId}`);
+
 				// Add more connection logs
 				logs.push(`Address resolution finished`);
 				logs.push(`Connecting to "${host.hostname}" port "${host.port || 22}"`);
@@ -136,6 +159,8 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 				// Create a new session
 				const session = await createSession(hostId);
 
+				debug(JSON.stringify(session, null, 4));
+
 				if (!session) {
 					throw new Error("Failed to create session");
 				}
@@ -148,8 +173,18 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 					prev ? { ...prev, logs: [...logs] } : null
 				);
 
+				// Update active sessions and sessions map
+				setActiveSessions((prev) => [...prev, session]);
+				setSessionsByHostId((prev) => ({
+					...prev,
+					[hostId]: session,
+				}));
+
 				// Set as active tab
 				setActiveTab(session.id);
+
+				// Navigate to terminal page
+				navigate(`/terminal/${hostId}`);
 			} catch (error) {
 				console.error("ConnectionContext: Connection failed:", error);
 
@@ -185,8 +220,10 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 						  }
 						: null
 				);
-
+			} finally {
 				setIsConnecting(false);
+				setConnectingHost(null);
+				console.log(`ConnectionContext: Connection count: ${connCount}`);
 			}
 		},
 		[getHost, createSession, connectionLogs, connectingHost]
@@ -195,13 +232,23 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 	// Disconnect from a session
 	const disconnect = useCallback(
 		async (sessionId: string) => {
-			console.log(`ConnectionContext: Closing session ${sessionId}`);
+			info(`ConnectionContext: Closing session ${sessionId}`);
 
 			try {
-				await endSession(sessionId);
-				console.log(
-					`ConnectionContext: Successfully closed session ${sessionId}`
-				);
+				// Find the session to get its host_id
+				const session = activeSessions.find((s) => s.id === sessionId);
+				if (!session) {
+					error(`ConnectionContext: Session ${sessionId} not found`);
+					return;
+				}
+
+				// Remove session from active sessions and sessions map first
+				setActiveSessions((prev) => prev.filter((s) => s.id !== sessionId));
+				setSessionsByHostId((prev) => {
+					const newSessions = { ...prev };
+					delete newSessions[session.host_id];
+					return newSessions;
+				});
 
 				// Handle active tab change if needed
 				if (activeTab === sessionId) {
@@ -214,11 +261,33 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 						setActiveTab(null);
 					}
 				}
+
+				try {
+					const removed = await endSession(session.id);
+					debug(`Session was removed: ${removed}`);
+				} catch (e) {
+					error(
+						`ConnectionContext: Error closing session ${sessionId}: ${JSON.stringify(
+							e,
+							null,
+							2
+						)}`
+					);
+					// If endSession fails, we should restore the session state
+					setActiveSessions((prev) => [...prev, session]);
+					setSessionsByHostId((prev) => ({
+						...prev,
+						[session.host_id]: session,
+					}));
+					throw e;
+				}
+				info(`ConnectionContext: Successfully closed session ${sessionId}`);
 			} catch (error) {
 				console.error(
 					`ConnectionContext: Error closing session ${sessionId}:`,
 					error
 				);
+				throw error; // Re-throw to allow components to handle the error
 			}
 		},
 		[activeTab, activeSessions, endSession]
@@ -233,6 +302,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 	const contextValue = useMemo(
 		() => ({
 			activeSessions,
+			sessionsByHostId,
 			activeTab,
 			connectingHost,
 			isConnecting,
@@ -243,44 +313,28 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 				console.log(
 					`ConnectionContext: Setting active tab to ${sessionId || "null"}`
 				);
-
-				// If sessionId is null, we're just hiding the terminal, not closing sessions
-				if (sessionId === null) {
-					console.log(
-						"ConnectionContext: Setting active tab to null (hiding terminal)"
-					);
-					setActiveTab(null);
-					return;
-				}
-
-				// Check if the session exists
-				const sessionExists = activeSessions.some((s) => s.id === sessionId);
-				if (sessionExists) {
-					console.log(
-						`ConnectionContext: Session ${sessionId} exists, setting as active tab`
-					);
-					setActiveTab(sessionId);
-				} else {
-					console.log(
-						`ConnectionContext: Session ${sessionId} does not exist, keeping current tab`
-					);
-					// Don't change the active tab if the session doesn't exist
-				}
+				setActiveTab(sessionId);
 			},
-			clearConnectionError,
 			isHostSelectorOpen,
 			setIsHostSelectorOpen,
+			clearConnectionError,
+			endSession,
+			setConnectingHost,
 		}),
 		[
 			activeSessions,
+			sessionsByHostId,
 			activeTab,
 			connectingHost,
 			isConnecting,
 			connectionLogs,
 			connect,
 			disconnect,
-			clearConnectionError,
 			isHostSelectorOpen,
+			setIsHostSelectorOpen,
+			clearConnectionError,
+			endSession,
+			setConnectingHost,
 		]
 	);
 

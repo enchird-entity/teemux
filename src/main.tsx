@@ -7,6 +7,9 @@ import "./index.css";
 import Providers from "./Providers.jsx";
 import "./translations/i18n.js"; // for internationalization (translations)
 import FallbackAppRender from "./views/FallbackErrorBoundary.js";
+import { attachConsole } from "@tauri-apps/plugin-log";
+
+attachConsole();
 
 const root = createRoot(document.getElementById("root")!);
 root.render(
