@@ -168,6 +168,7 @@ impl SSHManager {
       Uuid::new_v4()
     );
     let terminal_id = self.terminal_manager.create_terminal(&session_id).await;
+    info!("Created terminal with ID: {}", terminal_id);
 
     let new_session = Session {
       id: session_id.clone(),
@@ -202,10 +203,27 @@ impl SSHManager {
   }
 
   async fn create_shell(&self, session_id: &str) -> Result<(), AppError> {
+    // First get the terminal ID from the session to ensure it exists
+    let terminal_id = {
+      let sessions = self.sessions.lock().await;
+      let session = sessions.get(session_id).ok_or_else(|| {
+        AppError::SessionError("Session not found for shell creation".to_string())
+      })?;
+
+      // Clone the terminal ID to avoid holding the lock
+      session.terminal_id.clone()
+    };
+
+    info!(
+      "Found terminal ID for session {}: {}",
+      session_id, terminal_id
+    );
+
+    // Now get the connection and create the channel
     let mut connections = self.connections.lock().await;
     let session = connections
       .get_mut(session_id)
-      .ok_or_else(|| AppError::SessionError("Session not found".to_string()))?;
+      .ok_or_else(|| AppError::SessionError("SSH session not found".to_string()))?;
 
     let mut channel = session
       .channel_session()
@@ -218,23 +236,21 @@ impl SSHManager {
       .shell()
       .map_err(|e| AppError::SshError(format!("Shell request failed: {}", e)))?;
 
-    if let Some(terminal_id) = self
-      .sessions
-      .lock()
-      .await
-      .get(session_id)
-      .and_then(|s| Some(s.terminal_id.as_ref()))
-    {
-      // Wrap the channel in our SSHChannelWrapper
-      let channel_wrapper = SSHChannelWrapper::new(channel);
-      let boxed_channel = Box::new(channel_wrapper) as Box<dyn TerminalStream>;
+    // Wrap the channel in our SSHChannelWrapper
+    let channel_wrapper = SSHChannelWrapper::new(channel);
+    let boxed_channel = Box::new(channel_wrapper) as Box<dyn TerminalStream>;
 
-      self
-        .terminal_manager
-        .attach_stream(terminal_id, boxed_channel)
-        .await
-        .map_err(|e| AppError::SessionError(format!("Terminal attach failed: {}", e)))?;
-    }
+    // Release the connections lock before attempting to attach the stream
+    drop(connections);
+
+    // Attach the stream to the terminal
+    self
+      .terminal_manager
+      .attach_stream(&terminal_id, boxed_channel)
+      .await
+      .map_err(|e| AppError::SessionError(format!("Terminal attach failed: {}", e)))?;
+
+    info!("Successfully attached shell to terminal {}", terminal_id);
 
     Ok(())
   }
@@ -242,37 +258,88 @@ impl SSHManager {
   pub async fn disconnect(&self, session_id: &str) -> Result<(), AppError> {
     info!("SSH Manager: Disconnecting session {}", session_id);
 
-    // Log active connections before attempting to disconnect
-    let mut connections = self.connections.lock().await;
-    info!(
-      "SSH Manager: Active connections before disconnect: {:?}",
-      connections.keys().collect::<Vec<_>>()
-    );
+    // First get the terminal ID before releasing connections, in case we need it later
+    let terminal_id = {
+      let sessions = self.sessions.lock().await;
+      if let Some(session) = sessions.get(session_id) {
+        session.terminal_id.clone()
+      } else {
+        info!("SSH Manager: No session found with ID: {}", session_id);
+        return Ok(());
+      }
+    };
 
-    if let Some(session) = connections.remove(session_id) {
-      info!("SSH Manager: Found session to disconnect: {}", session_id);
-      session
-        .disconnect(None, "Disconnecting", None)
-        .map_err(|e| AppError::SshError(format!("Disconnect failed: {}", e)))?;
-    } else {
-      info!("SSH Manager: No session found with ID: {}", session_id);
+    // Handle SSH disconnection
+    let disconnection_result = {
+      // Log active connections before attempting to disconnect
+      let mut connections = self.connections.lock().await;
+      info!(
+        "SSH Manager: Active connections before disconnect: {:?}",
+        connections.keys().collect::<Vec<_>>()
+      );
+
+      if let Some(session) = connections.remove(session_id) {
+        info!("SSH Manager: Found session to disconnect: {}", session_id);
+        // We need to handle this result, as disconnect might fail
+        match session.disconnect(None, "Disconnecting", None) {
+          Ok(_) => {
+            info!(
+              "SSH Manager: Successfully disconnected SSH session: {}",
+              session_id
+            );
+            Ok(())
+          }
+          Err(e) => {
+            let error = AppError::SshError(format!("Disconnect failed: {}", e));
+            info!(
+              "SSH Manager: Failed to disconnect session {}: {}",
+              session_id, e
+            );
+            Err(error)
+          }
+        }
+      } else {
+        info!(
+          "SSH Manager: No active connection found with ID: {}",
+          session_id
+        );
+        Ok(()) // Not an error if connection doesn't exist
+      }
+    };
+
+    // Update session state regardless of SSH disconnection result
+    {
+      let mut sessions = self.sessions.lock().await;
+      if let Some(session) = sessions.get_mut(session_id) {
+        session.status = SessionStatus::Disconnected;
+        session.end_time =
+          Some(chrono::DateTime::<chrono::Utc>::from(SystemTime::now()).to_rfc3339());
+      }
     }
 
-    let mut sessions = self.sessions.lock().await;
-    if let Some(session) = sessions.get_mut(session_id) {
-      session.status = SessionStatus::Disconnected;
-      session.end_time =
-        Some(chrono::DateTime::<chrono::Utc>::from(SystemTime::now()).to_rfc3339());
-      let destroy_future = self.terminal_manager.destroy_terminal(&session.terminal_id);
-      let result = tokio::runtime::Handle::current().block_on(destroy_future);
-      if !result {
+    // Destroy the terminal
+    info!("SSH Manager: Destroying terminal {}", terminal_id);
+    match self.terminal_manager.destroy_terminal(&terminal_id).await {
+      true => {
+        info!(
+          "SSH Manager: Successfully destroyed terminal {}",
+          terminal_id
+        );
+      }
+      false => {
+        info!("SSH Manager: Failed to destroy terminal {}", terminal_id);
+        // Return the original disconnection error if there was one
+        if let Err(e) = disconnection_result {
+          return Err(e);
+        }
         return Err(AppError::SessionError(
           "Terminal destroy failed".to_string(),
         ));
       }
     }
 
-    Ok(())
+    // Return the original disconnection result (if any)
+    disconnection_result
   }
 
   pub async fn setup_sftp(&self, session_id: &str) -> Result<bool, AppError> {
@@ -356,7 +423,7 @@ mod tests {
   #[tokio::test]
   async fn test_ssh_manager() {
     let snippet_manager = Arc::new(SnippetManager::new());
-    let window_handler = Arc::new(MockWindowHandler {});
+    let window_handler = Arc::new(MockWindowHandler::new());
     let terminal_manager = Arc::new(TerminalManager::new(window_handler));
     let ssh_manager = SSHManager::new(terminal_manager, snippet_manager);
 

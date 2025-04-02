@@ -21,7 +21,7 @@ export const useTerminal = () => {
 		const unlisten = Promise.all([
 			listen("terminal:data", (event: any) => {
 				const data = event.payload as TerminalData;
-				console.log(data);
+				console.log("\n======> Data  Received on the Frontend: \n", data);
 
 				sendData(data.terminalId, data.data);
 
@@ -30,6 +30,15 @@ export const useTerminal = () => {
 				// 	// This will be used by the terminal component
 				// 	console.log("Terminal data received:", data);
 				// }
+			}),
+			listen("terminal:send:data", (event: any) => {
+				const data = event.payload as TerminalData;
+				console.log(
+					"\n======> Data  Received on the Frontend from Rust: \n",
+					data
+				);
+
+				// sendData(data.terminalId, data.data);
 			}),
 			listen("terminal:error", (event: any) => {
 				const error = event.payload as { terminalId: string; error: string };
@@ -51,7 +60,7 @@ export const useTerminal = () => {
 
 	const sendData = useCallback(async (terminalId: string, data: string) => {
 		try {
-			await invoke("terminal_send_data", {
+			await invoke("send_data", {
 				terminalId,
 				data,
 			});
@@ -63,7 +72,7 @@ export const useTerminal = () => {
 	const resizeTerminal = useCallback(
 		async (terminalId: string, size: TerminalSize) => {
 			try {
-				await invoke("terminal_resize", {
+				await invoke("resize_terminal", {
 					terminalId,
 					...size,
 				});
@@ -78,7 +87,7 @@ export const useTerminal = () => {
 
 	const closeTerminal = useCallback(async (terminalId: string) => {
 		try {
-			await invoke("terminal_close", { terminalId });
+			await invoke("resize_terminal", { terminalId });
 			setIsConnected(false);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to close terminal");

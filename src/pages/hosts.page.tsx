@@ -297,6 +297,7 @@ export const HostsPage = () => {
 					onEditHost={handleEditHost}
 					onDeleteHost={handleDeleteHost}
 					viewMode={viewMode}
+					isSidebarOpen={isSidebarOpen}
 				/>
 			</div>
 

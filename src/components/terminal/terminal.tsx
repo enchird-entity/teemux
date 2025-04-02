@@ -729,11 +729,11 @@ export const Terminal: React.FC<TerminalProps> = ({
 		// Write a welcome message immediately
 		terminal.write("\r\n\x1b[33mConnecting to server...\x1b[0m\r\n\n");
 
-		// Send the command using Tauri's event system
-		emit("terminal:data", {
-			terminalId: terminalId,
-			data: "landscape-sysinfo\n",
-		});
+		// // Send the command using Tauri's event system
+		// emit("terminal:data", {
+		// 	terminalId: terminalId,
+		// 	data: "landscape-sysinfo\n",
+		// });
 
 		console.log(
 			`Terminal component: Sent server info script command for terminal ID ${terminalId} (pane ${paneId})`
@@ -1071,24 +1071,15 @@ export const Terminal: React.FC<TerminalProps> = ({
 
 							// Handle terminal data input
 							term.onData((data) => {
+								console.log("Terminal component: onData ====>", data);
 								// Update activity timestamp when user types
 								updateActivityTimestamp(paneId);
 
-								// Send data using Tauri's event system
-								// Only emit when Enter key is pressed
-								if (data === "\r" || data === "\n") {
-									// Get the command from the buffer and emit it
-									emit("terminal:data", {
-										terminalId: paneTerminalId,
-										data,
-									});
-								} else {
-									// For non-Enter keys, still emit to show typing in terminal
-									// emit("terminal:data", {
-									// 	terminalId: paneTerminalId,
-									// 	data,
-									// });
-								}
+								// Send data to the terminal
+								emit("terminal:data", {
+									terminalId: paneTerminalId,
+									data,
+								});
 
 								// Add the current data to the buffer
 								lastInputCharsRef.current += data;
@@ -1100,6 +1091,7 @@ export const Terminal: React.FC<TerminalProps> = ({
 								}
 
 								// Check if the buffer contains "exit" followed by Enter
+								// But only close if it's an exact match to avoid false positives
 								if (
 									lastInputCharsRef.current.endsWith("exit\r") ||
 									lastInputCharsRef.current.endsWith("exit\n")
@@ -1107,6 +1099,10 @@ export const Terminal: React.FC<TerminalProps> = ({
 									console.log(
 										`Terminal component: Detected potential exit command in terminal ${paneTerminalId}, waiting for confirmation`
 									);
+
+									// Don't close immediately - wait for server response
+									// The dataHandler will handle actual session termination
+									// based on server response patterns
 								}
 							});
 
@@ -1160,10 +1156,14 @@ export const Terminal: React.FC<TerminalProps> = ({
 
 									// Set up the data listener
 									const unlistenData = await listen(
-										"terminal:data",
+										"terminal:send:data",
 										(event) => {
 											try {
 												// Validate payload structure
+												console.log(
+													"\n======> Data  Received on the Frontend from Rust ==< writing to xterm: \n",
+													event
+												);
 												if (!event || !event.payload) {
 													console.error(
 														`Terminal component: Invalid event payload`

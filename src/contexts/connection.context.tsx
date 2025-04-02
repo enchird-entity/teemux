@@ -185,6 +185,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 
 				// Navigate to terminal page
 				navigate(`/terminal/${hostId}`);
+				setConnectingHost(null);
 			} catch (error) {
 				console.error("ConnectionContext: Connection failed:", error);
 
@@ -220,9 +221,9 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 						  }
 						: null
 				);
-			} finally {
+
 				setIsConnecting(false);
-				setConnectingHost(null);
+			} finally {
 				console.log(`ConnectionContext: Connection count: ${connCount}`);
 			}
 		},

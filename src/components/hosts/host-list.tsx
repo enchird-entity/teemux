@@ -14,6 +14,7 @@ interface HostListProps {
 	selectedHostId?: string;
 	searchQuery?: string;
 	viewMode?: "grid" | "list";
+	isSidebarOpen?: boolean;
 }
 
 export function HostList({
@@ -26,6 +27,7 @@ export function HostList({
 	selectedHostId,
 	searchQuery = "",
 	viewMode = "grid",
+	isSidebarOpen = false,
 }: HostListProps) {
 	const filteredHosts = hosts.filter((host) => {
 		if (!searchQuery) return true;
@@ -101,7 +103,9 @@ export function HostList({
 					<div
 						className={
 							viewMode === "grid"
-								? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+								? isSidebarOpen
+									? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+									: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
 								: "flex flex-col gap-2"
 						}
 					>

@@ -15,13 +15,14 @@ export const TerminalPage: React.FC = () => {
 		isConnecting,
 		connectionLogs,
 		clearConnectionError,
+		connect,
 	} = useConnection();
 
 	const session = hostId ? sessionsByHostId[hostId] : null;
 
 	useEffect(() => {
 		if (!session && !isConnecting) {
-			navigate("/vaults/hosts");
+			// navigate("/vaults/hosts");
 		}
 	}, [session, isConnecting, navigate]);
 
@@ -38,6 +39,7 @@ export const TerminalPage: React.FC = () => {
 		if (hostId) {
 			clearConnectionError();
 			// The connection context will handle the retry
+			connect(hostId);
 		}
 	};
 
