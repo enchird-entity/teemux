@@ -52,6 +52,7 @@ interface CachedTerminal {
 	lastActivityTime: number;
 	eventListeners: {
 		data: () => void;
+		dataSent: () => void;
 		error: () => void;
 	};
 	isActive: boolean;
@@ -165,7 +166,7 @@ export const Terminal: React.FC<TerminalProps> = ({
 	const welcomeMessageSent = useRef<Set<string>>(new Set());
 	const terminalsBeingInitialized = useRef<Set<string>>(new Set());
 	const lastInputCharsRef = useRef<string>("");
-	const { sendData, isConnected } = useTerminal();
+	const { sendData } = useTerminal();
 
 	// Maximum number of reconnection attempts
 	const MAX_RECONNECT_ATTEMPTS = 3;
@@ -730,10 +731,7 @@ export const Terminal: React.FC<TerminalProps> = ({
 		terminal.write("\r\n\x1b[33mConnecting to server...\x1b[0m\r\n\n");
 
 		// // Send the command using Tauri's event system
-		// emit("terminal:data", {
-		// 	terminalId: terminalId,
-		// 	data: "landscape-sysinfo\n",
-		// });
+		// sendData(terminalId, "landscape-sysinfo\n");
 
 		console.log(
 			`Terminal component: Sent server info script command for terminal ID ${terminalId} (pane ${paneId})`
@@ -1071,27 +1069,54 @@ export const Terminal: React.FC<TerminalProps> = ({
 
 							// Handle terminal data input
 							term.onData((data) => {
-								console.log("Terminal component: onData ====>", data);
+								console.log(
+									"Terminal component: onData received",
+									data.length > 10 ? `${data.substring(0, 10)}...` : data,
+									data.split("").map((c) => c.charCodeAt(0))
+								);
+
 								// Update activity timestamp when user types
 								updateActivityTimestamp(paneId);
 
-								// Send data to the terminal
-								emit("terminal:data", {
+								emit("terminal:send:data", {
 									terminalId: paneTerminalId,
 									data,
 								});
 
-								// Add the current data to the buffer
-								lastInputCharsRef.current += data;
+								try {
+									// Send data to the backend immediately
+									console.log(
+										`Sending data to backend: ${
+											data.length > 10 ? `${data.substring(0, 10)}...` : data
+										}`
+									);
+									sendData(paneTerminalId, data);
+								} catch (err) {
+									console.error("Error sending data to backend:", err);
 
-								// Keep only the last 20 characters to avoid memory issues
+									// Try to fallback to direct event emission if sendData fails
+									try {
+										emit("terminal:data", {
+											terminalId: paneTerminalId,
+											data,
+										});
+										console.log("Fallback data emission successful");
+									} catch (emitErr) {
+										console.error(
+											"Fallback data emission also failed:",
+											emitErr
+										);
+									}
+								}
+
+								// Store recent input for command detection
+								lastInputCharsRef.current += data;
 								if (lastInputCharsRef.current.length > 20) {
 									lastInputCharsRef.current =
 										lastInputCharsRef.current.slice(-20);
 								}
 
 								// Check if the buffer contains "exit" followed by Enter
-								// But only close if it's an exact match to avoid false positives
 								if (
 									lastInputCharsRef.current.endsWith("exit\r") ||
 									lastInputCharsRef.current.endsWith("exit\n")
@@ -1099,10 +1124,6 @@ export const Terminal: React.FC<TerminalProps> = ({
 									console.log(
 										`Terminal component: Detected potential exit command in terminal ${paneTerminalId}, waiting for confirmation`
 									);
-
-									// Don't close immediately - wait for server response
-									// The dataHandler will handle actual session termination
-									// based on server response patterns
 								}
 							});
 
@@ -1161,7 +1182,7 @@ export const Terminal: React.FC<TerminalProps> = ({
 											try {
 												// Validate payload structure
 												console.log(
-													"\n======> Data  Received on the Frontend from Rust ==< writing to xterm: \n",
+													"\n======> Data Received on the Frontend from Rust ==< writing to xterm: \n",
 													event
 												);
 												if (!event || !event.payload) {
@@ -1205,10 +1226,34 @@ export const Terminal: React.FC<TerminalProps> = ({
 													// Process data with optimized approach
 													if (currentPane && currentPane.dataBuffer) {
 														// Use the buffer for better performance
-														currentPane.dataBuffer.write(data.data);
+														try {
+															currentPane.dataBuffer.write(data.data);
+															console.log(
+																"Data written to terminal buffer successfully"
+															);
+														} catch (err) {
+															console.error(
+																"Error writing to terminal buffer:",
+																err
+															);
+														}
 													} else if (term) {
 														// Fallback to direct write if buffer not available
-														term.write(data.data);
+														try {
+															term.write(data.data);
+															console.log(
+																"Data written directly to terminal successfully"
+															);
+														} catch (err) {
+															console.error(
+																"Error writing directly to terminal:",
+																err
+															);
+														}
+													} else {
+														console.error(
+															"No terminal or buffer available to write data"
+														);
 													}
 
 													// Check for exit command completion with improved pattern matching
@@ -1257,6 +1302,37 @@ export const Terminal: React.FC<TerminalProps> = ({
 														`Recovery attempt failed: ${recoveryErr}`
 													);
 												}
+											}
+										}
+									);
+
+									// Also listen for confirmation that data was sent successfully
+									const unlistenDataSent = await listen(
+										"terminal:data:sent",
+										(event) => {
+											try {
+												if (!event || !event.payload) return;
+
+												const data = event.payload as {
+													terminalId: string;
+													data: string;
+													success: boolean;
+												};
+
+												if (data.terminalId === paneTerminalId) {
+													console.log(
+														`Terminal component: Data successfully sent to server: ${
+															data.data.length > 10
+																? `${data.data.substring(0, 10)}...`
+																: data.data
+														}`
+													);
+												}
+											} catch (err) {
+												console.error(
+													"Error handling data sent confirmation:",
+													err
+												);
 											}
 										}
 									);
@@ -1364,6 +1440,7 @@ export const Terminal: React.FC<TerminalProps> = ({
 										lastActivityTime: Date.now(),
 										eventListeners: {
 											data: unlistenData,
+											dataSent: unlistenDataSent,
 											error: unlistenError,
 										},
 										isActive: isVisible,
@@ -1374,6 +1451,7 @@ export const Terminal: React.FC<TerminalProps> = ({
 										// Clean up event listeners
 										unlistenData();
 										unlistenError();
+										unlistenDataSent();
 										clearInterval(healthCheck);
 
 										// Track cleanup in logs

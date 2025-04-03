@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { useState, useCallback, useEffect } from "react";
 
 interface TerminalData {
@@ -21,9 +21,9 @@ export const useTerminal = () => {
 		const unlisten = Promise.all([
 			listen("terminal:data", (event: any) => {
 				const data = event.payload as TerminalData;
-				console.log("\n======> Data  Received on the Frontend: \n", data);
+				// console.log("\n======> Data  Received on the Frontend: \n", data);
 
-				sendData(data.terminalId, data.data);
+				// sendData(data.terminalId, data.data);
 
 				// if (data.terminalId === terminalId) {
 				// 	// Handle incoming terminal data
@@ -31,15 +31,7 @@ export const useTerminal = () => {
 				// 	console.log("Terminal data received:", data);
 				// }
 			}),
-			listen("terminal:send:data", (event: any) => {
-				const data = event.payload as TerminalData;
-				console.log(
-					"\n======> Data  Received on the Frontend from Rust: \n",
-					data
-				);
 
-				// sendData(data.terminalId, data.data);
-			}),
 			listen("terminal:error", (event: any) => {
 				const error = event.payload as { terminalId: string; error: string };
 				console.log(error);

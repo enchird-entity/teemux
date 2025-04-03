@@ -116,135 +116,67 @@ impl TerminalManager {
       terminal_id, data
     );
 
-    // First acquire the lock to check if the terminal and stream exist
-    let terminals = self.terminals.lock().await;
-    println!("Terminals: {:?}", terminals);
-
-    // Get the terminal if it exists
-    if let Some(terminal) = terminals.get(terminal_id) {
-      println!("Found terminal with id: {}", terminal_id);
-
-      // Check if stream exists
-      if let Some(_) = &terminal.stream {
-        println!("Found stream for terminal: {}", terminal_id);
-        println!("Writing {} bytes to stream", data.len());
-
-        // Create a cloned data buffer outside the lock to avoid holding it during I/O
-        let data_to_write = data.to_string();
-        let terminal_id_clone = terminal_id.to_string();
-        let window_handler = Arc::clone(&self.window_handler);
-        let terminals_clone = Arc::clone(&self.terminals);
-
-        // Release the original lock
-        drop(terminals);
-
-        // Now reacquire the lock and attempt the write operation
-        let mut terminals = terminals_clone.lock().await;
-
-        // Check again that the terminal and stream still exist
-        if let Some(terminal) = terminals.get_mut(&terminal_id_clone) {
-          if let Some(stream) = &mut terminal.stream {
-            // Complete the write operation inside this lock
-            let write_result = stream
-              .write_all(data_to_write.as_bytes())
-              .and_then(|_| stream.flush());
-
-            // Release the lock before any event emissions to avoid deadlock
-            drop(terminals);
-
-            match write_result {
-              Ok(_) => {
-                println!("Successfully wrote and flushed data to stream");
-                window_handler.send_to_all_windows(
-                  "terminal:send:data",
-                  serde_json::json!({
-                    "terminalId": terminal_id_clone,
-                    "data": data_to_write
-                  }),
-                );
-                return Ok(());
-              }
-              Err(e) => {
-                println!("Error writing to stream: {}", e);
-                window_handler.send_to_all_windows(
-                  "terminal:error",
-                  serde_json::json!({
-                    "terminalId": terminal_id_clone,
-                    "error": format!("Error writing to stream: {}", e)
-                  }),
-                );
-                return Err(e);
-              }
+    let mut terminals = self.terminals.lock().await;
+    match terminals.get_mut(terminal_id) {
+      Some(terminal) => match &mut terminal.stream {
+        Some(stream) => {
+          let result = stream
+            .write_all(data.as_bytes())
+            .and_then(|_| stream.flush());
+          drop(terminals);
+          match result {
+            Ok(_) => {
+              self.window_handler.send_to_all_windows(
+                "terminal:send:data",
+                serde_json::json!({
+                    "terminalId": terminal_id,
+                    "data": data,
+                    "success": true
+                }),
+              );
+              Ok(())
+            }
+            Err(e) => {
+              self.window_handler.send_to_all_windows(
+                "terminal:error",
+                serde_json::json!({
+                    "terminalId": terminal_id,
+                    "error": e.to_string()
+                }),
+              );
+              Err(e)
             }
           }
         }
-
-        // If we get here, the terminal or stream was removed between lock acquisitions
-        let err = std::io::Error::new(
-          std::io::ErrorKind::Other,
-          "Terminal state changed unexpectedly during operation",
-        );
-        println!("Error: {}", err);
-
-        window_handler.send_to_all_windows(
-          "terminal:error",
-          serde_json::json!({
-            "terminalId": terminal_id_clone,
-            "error": "Terminal state changed unexpectedly during operation"
-          }),
-        );
-
-        return Err(err);
-      } else {
-        // Stream doesn't exist
+        None => {
+          let err = std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Terminal stream not initialized",
+          );
+          self.window_handler.send_to_all_windows(
+            "terminal:error",
+            serde_json::json!({
+                "terminalId": terminal_id,
+                "error": "Terminal stream not initialized"
+            }),
+          );
+          Err(err)
+        }
+      },
+      None => {
         let err = std::io::Error::new(
           std::io::ErrorKind::NotFound,
-          format!(
-            "Terminal stream not initialized for terminal ID: {}",
-            terminal_id
-          ),
+          format!("Terminal not found with ID: {}", terminal_id),
         );
-        println!("Error: {}", err);
-
-        // Clone what we need before releasing the lock
-        let window_handler = Arc::clone(&self.window_handler);
-        drop(terminals);
-
-        window_handler.send_to_all_windows(
+        self.window_handler.send_to_all_windows(
           "terminal:error",
           serde_json::json!({
-            "terminalId": terminal_id,
-            "error": "Terminal stream not initialized"
+              "terminalId": terminal_id,
+              "error": format!("Terminal not found with ID: {}", terminal_id)
           }),
         );
-
-        return Err(err);
+        Err(err)
       }
-    } else {
-      // Terminal doesn't exist
-      println!(
-        "WARNING: Terminal ID {} not found in terminals map",
-        terminal_id
-      );
-      let err = std::io::Error::new(
-        std::io::ErrorKind::NotFound,
-        format!("Terminal not found with ID: {}", terminal_id),
-      );
-      println!("Error: {}", err);
-
-      // Clone what we need before releasing the lock
-      let window_handler = Arc::clone(&self.window_handler);
-      drop(terminals);
-
-      window_handler.send_to_all_windows(
-        "terminal:error",
-        serde_json::json!({
-          "terminalId": terminal_id,
-          "error": format!("Terminal not found with ID: {}", terminal_id)
-        }),
-      );
-
-      return Err(err);
     }
   }
 
