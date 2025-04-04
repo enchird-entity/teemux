@@ -6,12 +6,10 @@ import { useConnection } from "../../contexts/connection.context";
 
 interface HostCardProps {
 	host: Host;
-	onEdit?: (hostId: string) => void;
-	onDelete?: (hostId: string) => void;
+	onEdit?: () => void;
+	onDelete?: () => void;
 	isSelected?: boolean;
-	onClick?: (hostId: string) => void;
 	compact?: boolean;
-	actions?: React.ReactNode;
 }
 
 export function HostCard({
@@ -19,9 +17,7 @@ export function HostCard({
 	onEdit,
 	onDelete,
 	isSelected,
-	onClick,
 	compact,
-	actions,
 }: HostCardProps) {
 	const [isHighlighted, setIsHighlighted] = useState(false);
 	const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -59,12 +55,12 @@ export function HostCard({
 
 	const handleEdit = (e: React.MouseEvent) => {
 		e.stopPropagation();
-		if (onEdit) onEdit(host.id);
+		if (onEdit) onEdit();
 	};
 
 	const handleDelete = (e: React.MouseEvent) => {
 		e.stopPropagation();
-		if (onDelete) onDelete(host.id);
+		if (onDelete) onDelete();
 	};
 
 	const handleDoubleClick = (e: React.MouseEvent) => {
@@ -82,6 +78,7 @@ export function HostCard({
 					isSelected ? "ring-2 ring-[#f97316]" : ""
 				} ${connectionError ? "ring-2 ring-red-500" : ""}`}
 				onDoubleClick={handleDoubleClick}
+				onClick={handleEdit}
 			>
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-3">
@@ -158,7 +155,8 @@ export function HostCard({
 			<div className="flex flex-col justify-center">
 				<div className="font-medium text-white text-sm">{host.label}</div>
 				<div className="text-gray-400 text-xs">
-					{host.username} {host.authType} {host.tags}
+					ssh, {host.username}
+					{host?.tags?.length || 0 > 0 ? `, ${host?.tags?.join(", ")}` : ""}
 				</div>
 				{connectionError && (
 					<div className="text-xs text-red-400 mt-1">{connectionError}</div>

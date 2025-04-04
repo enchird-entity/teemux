@@ -3,7 +3,6 @@ import { TerminalLayout } from "@/layouts/terminal.layout";
 import { TerminalPage } from "@/pages/terminal.page";
 import React from "react";
 import { Navigate, RouteObject } from "react-router-dom";
-import { useParams } from "react-router-dom";
 
 // Export a route configuration object instead of a component
 export const terminalRoutes: RouteObject = {
@@ -15,8 +14,8 @@ export const terminalRoutes: RouteObject = {
 			element: <TerminalRedirect />,
 		},
 		{
-			path: ":sessionId",
-			element: <TerminalSessionRoute />,
+			path: ":hostId",
+			element: <TerminalPage />,
 		},
 	],
 };
@@ -24,29 +23,15 @@ export const terminalRoutes: RouteObject = {
 // Separate component to handle the redirect logic
 function TerminalRedirect() {
 	const { activeSessions } = useConnection();
-	const firstSession = activeSessions[0];
+	const firstSession = Object.values(activeSessions)[0];
 
-	if (!activeSessions.length) {
+	if (!Object.keys(activeSessions).length) {
 		return <Navigate to="/vaults/hosts" replace />;
 	}
 
 	if (firstSession) {
-		return <Navigate to={firstSession.id} replace />;
+		return <Navigate to={firstSession.host_id} replace />;
 	}
 
 	return null;
-}
-
-// Separate component to handle the session routing
-function TerminalSessionRoute() {
-	const { activeSessions } = useConnection();
-	const params = useParams<{ sessionId: string }>();
-
-	const session = activeSessions.find((s) => s.id === params.sessionId);
-
-	if (!session) {
-		return <Navigate to="/vaults/hosts" replace />;
-	}
-
-	return <TerminalPage session={session} />;
 }

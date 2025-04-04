@@ -1,13 +1,13 @@
 export interface Session {
-  id: string;
-  hostId: string;
-  terminalId: string;
-  startTime: string;
-  endTime?: string;
-  status: 'connecting' | 'connected' | 'disconnected' | 'error';
-  error?: string;
-  lastActivity?: string;
-  type: 'ssh' | 'serial' | 'telnet';
-  sftpEnabled?: boolean;
-  portForwardings?: any[];
+	id: string;
+	host_id: string;
+	terminal_id: string;
+	start_time: string;
+	end_time?: string;
+	status: "connecting" | "connected" | "disconnected" | "error";
+	error?: string;
+	last_activity?: string;
+	type: "ssh" | "serial" | "telnet";
+	sftp_enabled?: boolean;
+	port_forwardings?: any[];
 }
